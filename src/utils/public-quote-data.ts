@@ -1,7 +1,7 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { QuoteStatus } from 'src/objects/quote.object';
-import { type PublicQuote } from 'src/utils/public-quote-page';
+import { toQuoteReference, type PublicQuote } from 'src/utils/public-quote-page';
 
 export type PublicQuoteRecord = PublicQuote & {
   id: string;
@@ -62,6 +62,7 @@ export const findQuoteByPublicToken = async (
     id: quote.id,
     opportunityId: quote.opportunity?.id ?? null,
     totalMicros: Number(quote.total?.amountMicros ?? 0),
+    reference: toQuoteReference(quote.id),
     name: quote.name ?? 'Quote',
     status: quote.status ?? QuoteStatus.DRAFT,
     currencyCode: quote.currencyCode ?? 'USD',

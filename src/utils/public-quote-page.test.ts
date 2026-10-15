@@ -4,11 +4,13 @@ import {
   escapeHtml,
   renderMessagePage,
   renderQuotePage,
+  toQuoteReference,
   type PublicQuote,
 } from 'src/utils/public-quote-page';
 import { majorToMicros } from 'src/utils/quote-totals';
 
 const quote = (overrides: Partial<PublicQuote> = {}): PublicQuote => ({
+  reference: 'Q-FB2CEDE7',
   name: 'Website Redesign quote',
   status: 'SENT',
   currencyCode: 'USD',
@@ -63,6 +65,27 @@ describe('renderQuotePage', () => {
     expect(html).toContain('Accepted on October 16, 2026');
   });
 
+  it('offers a PDF download and names the document after the quote and reference', () => {
+    const html = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
+
+    expect(html).toContain('onclick="window.print()"');
+    expect(html).toContain('Download PDF');
+    expect(html).toContain('<title>Website Redesign quote (Q-FB2CEDE7)</title>');
+    expect(html).toContain('Quote Q-FB2CEDE7 · Prepared with Twenty Quotes');
+  });
+
+  it('opens the print dialog on load only when asked to', () => {
+    const plain = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
+    const printing = renderQuotePage({
+      quote: quote(),
+      acceptActionUrl: './abc/accept',
+      autoPrint: true,
+    });
+
+    expect(plain).not.toContain('<script>');
+    expect(printing).toContain("window.addEventListener('load'");
+  });
+
   it('hides discount and tax rows when they are zero', () => {
     const html = renderQuotePage({
       quote: quote({ discountPercent: 0, taxPercent: 0 }),
@@ -81,6 +104,12 @@ describe('renderMessagePage', () => {
 
     expect(html).toContain('&lt;b&gt;Oops&lt;/b&gt;');
     expect(html).toContain('a &lt; b');
+  });
+});
+
+describe('toQuoteReference', () => {
+  it('builds a short uppercase reference from the quote id', () => {
+    expect(toQuoteReference('fb2cede7-d0c0-478d-840d-520e170bf1d0')).toBe('Q-FB2CEDE7');
   });
 });
 

@@ -1,6 +1,7 @@
 import { computeQuoteTotals, formatMoney } from 'src/utils/quote-totals';
 
 export type PublicQuote = {
+  reference: string;
   name: string;
   status: string;
   currencyCode: string;
@@ -11,6 +12,9 @@ export type PublicQuote = {
   companyName: string | null;
   lineItems: { name: string; quantity: number; unitPriceMicros: number }[];
 };
+
+// A short, stable label for the quote, e.g. Q-B1AE2A9A (sequential numbering is planned for v2).
+export const toQuoteReference = (quoteId: string) => `Q-${quoteId.slice(0, 8).toUpperCase()}`;
 
 // Everything a workspace member typed goes through this before reaching the page.
 export const escapeHtml = (value: string) =>
@@ -50,16 +54,34 @@ const STYLES = `
   .summary div { display: flex; justify-content: space-between; padding: 4px 0; font-variant-numeric: tabular-nums; }
   .summary .muted { color: var(--muted); }
   .summary .total { font-weight: 600; font-size: 17px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; }
+  .eyebrow { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px;
+    font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
   .actions { margin-top: 32px; display: flex; justify-content: flex-end; }
   button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 12px 24px;
     font: inherit; font-weight: 600; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border);
+    padding: 8px 16px; font-weight: 500; font-size: 14px; }
   .notice { margin-top: 32px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--success);
     color: var(--success); text-align: center; font-weight: 500; }
   footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
-  @media print { body { background: #fff; } .card { border: 0; } .actions, footer { display: none; } }
+  .print-only { display: none; }
+  @page { margin: 16mm; }
+  @media print {
+    :root { --bg: #fff; --card: #fff; --text: #111; --muted: #555; --border: #ddd; --success: #1f8a4c; }
+    body { font-size: 12pt; }
+    main { max-width: none; margin: 0; padding: 0; }
+    .card { border: 0; border-radius: 0; padding: 0; }
+    tr { break-inside: avoid; }
+    .toolbar, .actions, footer { display: none; }
+    .print-only { display: block; margin-top: 32px; color: var(--muted); font-size: 9pt; }
+  }
 `;
 
-const renderDocument = (title: string, content: string) => `<!doctype html>
+// Opening the page with ?print=1 brings up the print dialog, where "Save as PDF" makes the file.
+const AUTO_PRINT_SCRIPT = `<script>window.addEventListener('load', function () { window.print(); });</script>`;
+
+const renderDocument = (title: string, content: string, { autoPrint = false } = {}) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -67,6 +89,7 @@ const renderDocument = (title: string, content: string) => `<!doctype html>
 <meta name="robots" content="noindex, nofollow">
 <title>${escapeHtml(title)}</title>
 <style>${STYLES}</style>
+${autoPrint ? AUTO_PRINT_SCRIPT : ''}
 </head>
 <body><main>${content}<footer>Sent with Twenty Quotes</footer></main></body>
 </html>`;
@@ -74,9 +97,11 @@ const renderDocument = (title: string, content: string) => `<!doctype html>
 export const renderQuotePage = ({
   quote,
   acceptActionUrl,
+  autoPrint = false,
 }: {
   quote: PublicQuote;
   acceptActionUrl: string;
+  autoPrint?: boolean;
 }) => {
   const totals = computeQuoteTotals({
     lines: quote.lineItems.map(({ quantity, unitPriceMicros }) => ({ quantity, unitPriceMicros })),
@@ -110,9 +135,14 @@ export const renderQuotePage = ({
           <button type="submit">Accept quote</button>
         </form>`;
 
+  // The document title becomes the default PDF file name.
   return renderDocument(
-    quote.name,
-    `<div class="card">
+    `${quote.name} (${quote.reference})`,
+    `<div class="toolbar">
+      <button type="button" class="secondary" onclick="window.print()">Download PDF</button>
+    </div>
+    <div class="card">
+      <div class="eyebrow"><span>Quote</span><span>${escapeHtml(quote.reference)}</span></div>
       <h1>${escapeHtml(quote.name)}</h1>
       <p class="meta">${meta}</p>
       <table>
@@ -134,7 +164,9 @@ export const renderQuotePage = ({
         <div class="total"><span>Total</span><span>${money(totals.totalMicros)}</span></div>
       </div>
       ${footer}
+      <p class="print-only">Quote ${escapeHtml(quote.reference)} · Prepared with Twenty Quotes</p>
     </div>`,
+    { autoPrint },
   );
 };
 

@@ -8,7 +8,14 @@ import {
   useSelectedRecordIds,
 } from 'twenty-sdk/front-component';
 import { Tag } from 'twenty-ui/primitives/data-display';
-import { IconCopy, IconExternalLink, IconPlus, IconSend, IconTrash } from 'twenty-ui/icon';
+import {
+  IconCopy,
+  IconExternalLink,
+  IconDownload,
+  IconPlus,
+  IconSend,
+  IconTrash,
+} from 'twenty-ui/icon';
 import { Button } from 'twenty-ui/primitives/input';
 import { useTheme } from 'twenty-ui/theme';
 
@@ -487,6 +494,17 @@ const QuoteEditor = () => {
               onClick={copyLink}
             >
               Copy
+            </Button>
+            <Button
+              variant="outline"
+              color="neutral"
+              size="sm"
+              startIcon={<IconDownload size={theme.icon.size.sm} />}
+              href={`${publicUrl}?print=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              PDF
             </Button>
             <Button
               aria-label="Open client link"

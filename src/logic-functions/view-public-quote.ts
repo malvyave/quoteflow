@@ -22,7 +22,13 @@ const handler = async (event: RoutePayload) => {
     return quoteNotFoundResponse();
   }
 
-  return htmlResponse(renderQuotePage({ quote, acceptActionUrl: `./${token}/accept` }));
+  return htmlResponse(
+    renderQuotePage({
+      quote,
+      acceptActionUrl: `./${token}/accept`,
+      autoPrint: event.queryStringParameters?.print === '1',
+    }),
+  );
 };
 
 export default defineLogicFunction({
