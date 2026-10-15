@@ -1,5 +1,7 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
+import { QuoteStatus } from 'src/objects/quote.object';
+import { generatePublicToken } from 'src/utils/public-quote-token';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
 
 export const DEFAULT_CURRENCY_CODE = 'USD';
@@ -17,6 +19,7 @@ export type QuoteDraft = {
   id: string | null;
   name: string;
   status: string;
+  publicToken: string | null;
   currencyCode: string;
   discountPercent: string;
   taxPercent: string;
@@ -70,6 +73,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
           id: true,
           name: true,
           status: true,
+          publicToken: true,
           currencyCode: true,
           discountPercent: true,
           taxPercent: true,
@@ -85,6 +89,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
       id: null,
       name: opportunity?.name ? `${opportunity.name} quote` : 'Quote',
       status: 'DRAFT',
+      publicToken: null,
       currencyCode: opportunity?.amount?.currencyCode || DEFAULT_CURRENCY_CODE,
       discountPercent: '0',
       taxPercent: '0',
@@ -114,6 +119,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
     id: quote.id,
     name: quote.name ?? '',
     status: quote.status ?? 'DRAFT',
+    publicToken: quote.publicToken ?? null,
     currencyCode: quote.currencyCode || DEFAULT_CURRENCY_CODE,
     discountPercent: String(quote.discountPercent ?? 0),
     taxPercent: String(quote.taxPercent ?? 0),
@@ -215,4 +221,34 @@ export const saveQuoteDraft = async ({
   ]);
 
   return quoteId;
+};
+
+// Locks the quote and gives it a fresh public link.
+export const sendQuote = async (quoteId: string) => {
+  await new CoreApiClient().mutation({
+    updateQuote: {
+      __args: {
+        id: quoteId,
+        data: {
+          status: QuoteStatus.SENT,
+          sentAt: new Date().toISOString(),
+          publicToken: generatePublicToken(),
+        },
+      },
+      id: true,
+    },
+  });
+};
+
+// Moves a sent quote back to draft; clearing the token makes the old link stop working.
+export const withdrawQuote = async (quoteId: string) => {
+  await new CoreApiClient().mutation({
+    updateQuote: {
+      __args: {
+        id: quoteId,
+        data: { status: QuoteStatus.DRAFT, sentAt: null, publicToken: null },
+      },
+      id: true,
+    },
+  });
 };

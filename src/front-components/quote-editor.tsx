@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { defineFrontComponent } from 'twenty-sdk/define';
-import { enqueueSnackbar, useSelectedRecordIds } from 'twenty-sdk/front-component';
+import { RestApiClient } from 'twenty-client-sdk/rest';
+import {
+  copyToClipboard,
+  enqueueSnackbar,
+  openCommandConfirmationModal,
+  useSelectedRecordIds,
+} from 'twenty-sdk/front-component';
 import { Tag } from 'twenty-ui/primitives/data-display';
-import { IconPlus, IconTrash } from 'twenty-ui/icon';
+import { IconCopy, IconExternalLink, IconPlus, IconSend, IconTrash } from 'twenty-ui/icon';
 import { Button } from 'twenty-ui/primitives/input';
 import { useTheme } from 'twenty-ui/theme';
 
@@ -13,9 +19,12 @@ import {
   loadQuoteDraft,
   newLineItemDraft,
   saveQuoteDraft,
+  sendQuote,
+  withdrawQuote,
   type LineItemDraft,
   type QuoteDraft,
 } from 'src/utils/quote-api';
+import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 import { formatMoney } from 'src/utils/quote-totals';
 
 const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'AED', 'CHF', 'JPY'];
@@ -46,6 +55,7 @@ const QuoteEditor = () => {
   const [removedLineItemIds, setRemovedLineItemIds] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   const load = useCallback(async () => {
     if (!opportunityId) {
@@ -231,6 +241,85 @@ const QuoteEditor = () => {
     }
   };
 
+  const publicUrl =
+    draft.publicToken && draft.status !== QuoteStatus.DRAFT
+      ? new RestApiClient().resolveUrl(`/s${PUBLIC_QUOTE_ROUTE_PREFIX}/${draft.publicToken}`)
+      : null;
+  const hasNamedLineItem = draft.lineItems.some((lineItem) => lineItem.name.trim() !== '');
+  const canSend = draft.id !== null && !isDirty && hasNamedLineItem && !isSaving;
+
+  const changeStatus = async ({
+    title,
+    subtitle,
+    confirmButtonText,
+    confirmButtonAccent,
+    action,
+    successMessage,
+  }: {
+    title: string;
+    subtitle: string;
+    confirmButtonText: string;
+    confirmButtonAccent: 'blue' | 'danger';
+    action: (quoteId: string) => Promise<void>;
+    successMessage: string;
+  }) => {
+    if (draft.id === null) {
+      return;
+    }
+
+    const choice = await openCommandConfirmationModal({
+      title,
+      subtitle,
+      confirmButtonText,
+      confirmButtonAccent,
+    });
+
+    if (choice !== 'confirm') {
+      return;
+    }
+
+    setIsChangingStatus(true);
+
+    try {
+      await action(draft.id);
+      await load();
+      enqueueSnackbar({ message: successMessage, variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar({ message: getErrorMessage(error), variant: 'error' });
+    } finally {
+      setIsChangingStatus(false);
+    }
+  };
+
+  const send = () =>
+    changeStatus({
+      title: 'Send this quote?',
+      subtitle:
+        'You will get a link to share with your client. The quote is locked while it is out for acceptance.',
+      confirmButtonText: 'Send quote',
+      confirmButtonAccent: 'blue',
+      action: sendQuote,
+      successMessage: 'Quote sent. Copy the link below to share it.',
+    });
+
+  const withdraw = () =>
+    changeStatus({
+      title: 'Withdraw and edit?',
+      subtitle:
+        'The current link will stop working. Send the quote again after editing to get a new link.',
+      confirmButtonText: 'Withdraw',
+      confirmButtonAccent: 'danger',
+      action: withdrawQuote,
+      successMessage: 'Quote moved back to draft',
+    });
+
+  // Twenty shows its own "copied" or "couldn't copy" toast, so none is added here.
+  const copyLink = () => {
+    if (publicUrl) {
+      copyToClipboard(publicUrl);
+    }
+  };
+
   return (
     <div style={styles.root}>
       <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
@@ -380,12 +469,47 @@ const QuoteEditor = () => {
         </span>
       </div>
 
-      {isEditable && (
-        <div style={{ display: 'flex', justifyContent: 'end', gap: theme.spacing[2] }}>
-          {isDirty && <span style={{ ...styles.muted, alignSelf: 'center' }}>Unsaved changes</span>}
+      {publicUrl && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[2] }}>
+          <span style={styles.label}>Client link</span>
+          <div style={{ display: 'flex', gap: theme.spacing[2], alignItems: 'center' }}>
+            <input
+              aria-label="Client link"
+              readOnly
+              value={publicUrl}
+              style={{ ...styles.input, flex: 1, color: theme.font.color.secondary }}
+            />
+            <Button
+              variant="outline"
+              color="neutral"
+              size="sm"
+              startIcon={<IconCopy size={theme.icon.size.sm} />}
+              onClick={copyLink}
+            >
+              Copy
+            </Button>
+            <Button
+              aria-label="Open client link"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              startIcon={<IconExternalLink size={theme.icon.size.sm} />}
+              href={publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'end', gap: theme.spacing[2] }}>
+        {isEditable && isDirty && (
+          <span style={{ ...styles.muted, alignSelf: 'center' }}>Unsaved changes</span>
+        )}
+        {isEditable && (
           <Button
-            variant="solid"
-            color="accent"
+            variant={isDirty || draft.id === null ? 'solid' : 'outline'}
+            color={isDirty || draft.id === null ? 'accent' : 'neutral'}
             size="sm"
             loading={isSaving}
             disabled={!isDirty || isSaving}
@@ -393,8 +517,33 @@ const QuoteEditor = () => {
           >
             {draft.id === null ? 'Create quote' : 'Save quote'}
           </Button>
-        </div>
-      )}
+        )}
+        {isEditable && draft.id !== null && (
+          <Button
+            variant="solid"
+            color="accent"
+            size="sm"
+            startIcon={<IconSend size={theme.icon.size.sm} />}
+            loading={isChangingStatus}
+            disabled={!canSend || isChangingStatus}
+            onClick={send}
+          >
+            Send quote
+          </Button>
+        )}
+        {draft.status === QuoteStatus.SENT && (
+          <Button
+            variant="outline"
+            color="neutral"
+            size="sm"
+            loading={isChangingStatus}
+            disabled={isChangingStatus}
+            onClick={withdraw}
+          >
+            Withdraw and edit
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
