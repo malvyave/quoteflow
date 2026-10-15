@@ -9,6 +9,7 @@ import {
 import {
   OPPORTUNITY_QUOTES_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_ACCEPTED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_CURRENCY_CODE_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_DISCOUNT_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_LINE_ITEM_OBJECT_UNIVERSAL_IDENTIFIER,
   QUOTE_LINE_ITEM_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
@@ -53,6 +54,16 @@ export default defineObject({
         { value: QuoteStatus.ACCEPTED, label: 'Accepted', position: 2, color: 'green' },
         { value: QuoteStatus.DECLINED, label: 'Declined', position: 3, color: 'red' },
       ],
+    },
+    {
+      universalIdentifier: QUOTE_CURRENCY_CODE_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'currencyCode',
+      type: FieldType.TEXT,
+      label: 'Currency',
+      description: 'ISO 4217 code shared by every amount on the quote, e.g. USD',
+      icon: 'IconCoins',
+      isNullable: false,
+      defaultValue: "'USD'",
     },
     {
       universalIdentifier: QUOTE_DISCOUNT_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
