@@ -1,0 +1,147 @@
+import {
+  defineObject,
+  FieldType,
+  OnDeleteAction,
+  RelationType,
+  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
+} from 'twenty-sdk/define';
+
+import {
+  OPPORTUNITY_QUOTES_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_ACCEPTED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_DISCOUNT_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_LINE_ITEM_OBJECT_UNIVERSAL_IDENTIFIER,
+  QUOTE_LINE_ITEM_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_LINE_ITEMS_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_OBJECT_UNIVERSAL_IDENTIFIER,
+  QUOTE_OPPORTUNITY_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_PUBLIC_TOKEN_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_SENT_AT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_STATUS_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_SUBTOTAL_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_TAX_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_TOTAL_FIELD_UNIVERSAL_IDENTIFIER,
+} from 'src/constants/universal-identifiers';
+
+export enum QuoteStatus {
+  DRAFT = 'DRAFT',
+  SENT = 'SENT',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+}
+
+export default defineObject({
+  universalIdentifier: QUOTE_OBJECT_UNIVERSAL_IDENTIFIER,
+  nameSingular: 'quote',
+  namePlural: 'quotes',
+  labelSingular: 'Quote',
+  labelPlural: 'Quotes',
+  description: 'An itemized quote for an opportunity',
+  icon: 'IconFileInvoice',
+  fields: [
+    {
+      universalIdentifier: QUOTE_STATUS_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'status',
+      type: FieldType.SELECT,
+      label: 'Status',
+      icon: 'IconProgressCheck',
+      isNullable: false,
+      defaultValue: `'${QuoteStatus.DRAFT}'`,
+      options: [
+        { value: QuoteStatus.DRAFT, label: 'Draft', position: 0, color: 'gray' },
+        { value: QuoteStatus.SENT, label: 'Sent', position: 1, color: 'blue' },
+        { value: QuoteStatus.ACCEPTED, label: 'Accepted', position: 2, color: 'green' },
+        { value: QuoteStatus.DECLINED, label: 'Declined', position: 3, color: 'red' },
+      ],
+    },
+    {
+      universalIdentifier: QUOTE_DISCOUNT_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'discountPercent',
+      type: FieldType.NUMBER,
+      label: 'Discount (%)',
+      description: 'Applied to the subtotal before tax',
+      icon: 'IconDiscount',
+      isNullable: false,
+      defaultValue: 0,
+      universalSettings: { dataType: 'float', decimals: 2 },
+    },
+    {
+      universalIdentifier: QUOTE_TAX_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'taxPercent',
+      type: FieldType.NUMBER,
+      label: 'Tax (%)',
+      description: 'Applied after the discount',
+      icon: 'IconReceiptTax',
+      isNullable: false,
+      defaultValue: 0,
+      universalSettings: { dataType: 'float', decimals: 2 },
+    },
+    {
+      universalIdentifier: QUOTE_SUBTOTAL_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'subtotal',
+      type: FieldType.CURRENCY,
+      label: 'Subtotal',
+      description: 'Sum of line items, before discount and tax',
+      icon: 'IconSum',
+    },
+    {
+      universalIdentifier: QUOTE_TOTAL_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'total',
+      type: FieldType.CURRENCY,
+      label: 'Total',
+      description: 'Subtotal after discount and tax',
+      icon: 'IconCurrencyDollar',
+    },
+    {
+      universalIdentifier: QUOTE_PUBLIC_TOKEN_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'publicToken',
+      type: FieldType.TEXT,
+      label: 'Public token',
+      description: 'Secret token for the client-facing quote link',
+      icon: 'IconKey',
+    },
+    {
+      universalIdentifier: QUOTE_SENT_AT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'sentAt',
+      type: FieldType.DATE_TIME,
+      label: 'Sent at',
+      icon: 'IconSend',
+    },
+    {
+      universalIdentifier: QUOTE_ACCEPTED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'acceptedAt',
+      type: FieldType.DATE_TIME,
+      label: 'Accepted at',
+      icon: 'IconCircleCheck',
+    },
+    {
+      universalIdentifier: QUOTE_OPPORTUNITY_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'opportunity',
+      type: FieldType.RELATION,
+      label: 'Opportunity',
+      icon: 'IconTargetArrow',
+      relationTargetObjectMetadataUniversalIdentifier:
+        STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.opportunity.universalIdentifier,
+      relationTargetFieldMetadataUniversalIdentifier:
+        OPPORTUNITY_QUOTES_FIELD_UNIVERSAL_IDENTIFIER,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.CASCADE,
+        joinColumnName: 'opportunityId',
+      },
+    },
+    {
+      universalIdentifier: QUOTE_LINE_ITEMS_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'lineItems',
+      type: FieldType.RELATION,
+      label: 'Line items',
+      icon: 'IconList',
+      relationTargetObjectMetadataUniversalIdentifier: QUOTE_LINE_ITEM_OBJECT_UNIVERSAL_IDENTIFIER,
+      relationTargetFieldMetadataUniversalIdentifier:
+        QUOTE_LINE_ITEM_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      universalSettings: {
+        relationType: RelationType.ONE_TO_MANY,
+      },
+    },
+  ],
+});
