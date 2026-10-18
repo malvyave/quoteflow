@@ -40,7 +40,21 @@ Follow these steps to get your app running locally.
 - `yarn lint` - Lint the project with oxlint
 - `yarn typecheck` - Type-check the project
 - `yarn test:unit` - Run unit tests
-- `yarn test` - Run integration tests
+- `yarn test` - Run integration tests against the local server
+- `yarn test:e2e` - Run browser tests (the client page and the Quote tab) with Playwright
+
+Integration and browser tests need the Twenty CLI on your PATH (`npm install -g twenty@2.46.0`)
+and the local server running. They create their own test deals and delete them afterwards.
+
+By default `yarn test` uninstalls and reinstalls the app first, which **deletes every quote in the
+workspace**. To keep your local data, test the app you already synced instead:
+
+```bash
+TWENTY_TEST_REUSE_INSTALL=1 yarn test
+```
+
+Browser tests expect the app to be installed (`yarn twenty apply`) and use the installed Google
+Chrome locally. CI runs all of these on every push and pull request (`.github/workflows/ci.yml`).
 
 ## Troubleshooting
 

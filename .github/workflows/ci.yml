@@ -53,6 +53,32 @@ jobs:
       - name: Unit tests
         run: yarn test:unit
 
+      # Browser tests run before the integration tests, whose teardown uninstalls the app.
+      - name: Install the app on the test instance
+        run: twenty app apply --create --json
+        env:
+          TWENTY_API_URL: ${{ steps.twenty.outputs.server-url }}
+          TWENTY_API_KEY: ${{ steps.twenty.outputs.api-key }}
+
+      - name: Install Playwright Chromium
+        run: yarn playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: yarn test:e2e
+        env:
+          TWENTY_API_URL: ${{ steps.twenty.outputs.server-url }}
+          TWENTY_API_KEY: ${{ steps.twenty.outputs.api-key }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
       - name: Run integration tests
         run: yarn test
         env:

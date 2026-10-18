@@ -32,10 +32,20 @@ async function checkServer(apiUrl: string) {
   }
 }
 
+// Uninstalling deletes the app's objects and every quote in the workspace. CI runs against a
+// throwaway server, so it reinstalls from scratch; locally, set TWENTY_TEST_REUSE_INSTALL=1 to
+// test the already-synced app and keep your data.
+const shouldReuseInstall = () => process.env.TWENTY_TEST_REUSE_INSTALL === '1';
+
 export async function setup() {
   const { apiUrl } = validateEnv();
 
   await checkServer(apiUrl);
+
+  if (shouldReuseInstall()) {
+    return;
+  }
+
   await runTwenty(['app', 'uninstall', '--yes']);
 
   const result = await runTwenty(['app', 'apply', '--create']);
@@ -48,6 +58,10 @@ export async function setup() {
 }
 
 export async function teardown() {
+  if (shouldReuseInstall()) {
+    return;
+  }
+
   const result = await runTwenty(['app', 'uninstall', '--yes']);
 
   if (!result.ok) {
