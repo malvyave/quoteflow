@@ -10,12 +10,21 @@ import {
 } from 'src/__tests__/quote-flow-helpers';
 import { FREE_ACTIVE_QUOTE_LIMIT, type PlanStatus } from 'src/utils/billing';
 
-// The free plan limit against a real server. The Stripe test-mode block runs only when
-// STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PRICE_ID are set (a Stripe account in test mode).
+// The free plan limit against a real server. These tests overwrite and then clear the Stripe
+// server variables, so they run on CI's throwaway server, and locally only with
+// TWENTY_TEST_BILLING=1, never by accident on a server where you entered your own keys.
+// The Stripe test-mode block also needs STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PRICE_ID.
+
+const changesServerVariables =
+  process.env.TWENTY_TEST_REUSE_INSTALL !== '1' || process.env.TWENTY_TEST_BILLING === '1';
 
 const createdDeals: string[] = [];
 
 afterEach(async () => {
+  if (!changesServerVariables) {
+    return;
+  }
+
   await setServerVariable('STRIPE_SECRET_KEY', null);
   await setServerVariable('STRIPE_PRICE_ID', null);
 });
@@ -52,7 +61,7 @@ const sendQuotesUntilActive = async (target: number) => {
   return { dealId, statuses, plan };
 };
 
-describe('without Stripe keys', () => {
+describe.skipIf(!changesServerVariables)('without Stripe keys', () => {
   it('reports billing as off and never limits sending', async () => {
     const { statuses, plan } = await sendQuotesUntilActive(FREE_ACTIVE_QUOTE_LIMIT + 1);
 
@@ -66,7 +75,7 @@ describe('without Stripe keys', () => {
   });
 });
 
-describe('when Stripe cannot be reached', () => {
+describe.skipIf(!changesServerVariables)('when Stripe cannot be reached', () => {
   it('fails open: sending still works and the upgrade reports an error', async () => {
     await setServerVariable('STRIPE_SECRET_KEY', 'sk_test_not_a_real_key');
     await setServerVariable('STRIPE_PRICE_ID', 'price_not_real');
@@ -85,7 +94,7 @@ describe('when Stripe cannot be reached', () => {
 const stripeTestKey = process.env.STRIPE_TEST_SECRET_KEY;
 const stripeTestPrice = process.env.STRIPE_TEST_PRICE_ID;
 
-describe.skipIf(!stripeTestKey || !stripeTestPrice)('with Stripe in test mode', () => {
+describe.skipIf(!changesServerVariables || !stripeTestKey || !stripeTestPrice)('with Stripe in test mode', () => {
   it('blocks the quote over the free limit and offers a checkout', async () => {
     await setServerVariable('STRIPE_SECRET_KEY', stripeTestKey as string);
     await setServerVariable('STRIPE_PRICE_ID', stripeTestPrice as string);

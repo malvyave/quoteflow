@@ -53,6 +53,10 @@ workspace**. To keep your local data, test the app you already synced instead:
 TWENTY_TEST_REUSE_INSTALL=1 yarn test
 ```
 
+With `TWENTY_TEST_REUSE_INSTALL=1` the billing tests are skipped too, because they overwrite and
+then clear the Stripe keys (server variables). Add `TWENTY_TEST_BILLING=1` to run them anyway on
+a server where losing those keys is fine.
+
 Browser tests expect the app to be installed (`yarn twenty apply`) and use the installed Google
 Chrome locally. CI runs all of these on every push and pull request (`.github/workflows/ci.yml`).
 
