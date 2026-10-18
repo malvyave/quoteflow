@@ -1,6 +1,7 @@
 {
-  "name": "twenty-quotes",
+  "name": "twenty-quoteflow",
   "version": "0.1.0",
+  "description": "QuoteFlow for Twenty: itemized quotes on your deals. Send a link, the client accepts, the deal is won.",
   "license": "MIT",
   "engines": {
     "node": "^24.5.0",
@@ -8,7 +9,14 @@
     "yarn": ">=4.0.2",
     "twenty": ">=2.46.0"
   },
-  "keywords": [],
+  "keywords": [
+    "twenty-app",
+    "twenty",
+    "crm",
+    "quotes",
+    "quoting",
+    "cpq"
+  ],
   "packageManager": "yarn@4.13.0",
   "scripts": {
     "twenty": "twenty",

@@ -111,7 +111,7 @@ const renderDocument = (title: string, content: string, { autoPrint = false } = 
 <style>${STYLES}</style>
 ${autoPrint ? AUTO_PRINT_SCRIPT : ''}
 </head>
-<body><main>${content}<footer>Sent with Twenty Quotes</footer></main></body>
+<body><main>${content}<footer>Sent with QuoteFlow</footer></main></body>
 </html>`;
 
 const renderSeller = (seller: QuoteSeller) => {
@@ -231,7 +231,7 @@ export const renderQuotePage = ({
       ${renderFooter({ quote, acceptActionUrl, isExpired, isPreview })}
       <p class="print-only">Quote ${escapeHtml(quote.reference)}${
         quote.seller.name ? ` · ${escapeHtml(quote.seller.name)}` : ''
-      } · Prepared with Twenty Quotes</p>
+      } · Prepared with QuoteFlow</p>
     </div>`,
     { autoPrint },
   );
