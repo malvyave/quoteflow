@@ -18,15 +18,17 @@ export const getPublicPageState = (status: string | null | undefined): PublicPag
   }
 };
 
-export type AcceptanceDecision = 'accept' | 'already-accepted' | 'unavailable';
+export type AcceptanceDecision = 'accept' | 'already-accepted' | 'expired' | 'unavailable';
 
 // Whether a click on Accept should go ahead. Only one quote per opportunity can win.
 export const decideAcceptance = ({
   status,
   hasOtherAcceptedQuote,
+  isExpired,
 }: {
   status: string;
   hasOtherAcceptedQuote: boolean;
+  isExpired: boolean;
 }): AcceptanceDecision => {
   if (status === QuoteStatus.ACCEPTED) {
     return 'already-accepted';
@@ -34,6 +36,10 @@ export const decideAcceptance = ({
 
   if (status !== QuoteStatus.SENT || hasOtherAcceptedQuote) {
     return 'unavailable';
+  }
+
+  if (isExpired) {
+    return 'expired';
   }
 
   return 'accept';

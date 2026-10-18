@@ -4,7 +4,6 @@ import {
   escapeHtml,
   renderMessagePage,
   renderQuotePage,
-  toQuoteReference,
   type PublicQuote,
 } from 'src/utils/public-quote-page';
 import { majorToMicros } from 'src/utils/quote-totals';
@@ -18,7 +17,11 @@ const quote = (overrides: Partial<PublicQuote> = {}): PublicQuote => ({
   taxPercent: 18,
   sentAt: '2026-10-15T10:00:00.000Z',
   acceptedAt: null,
+  expiresAt: null,
+  message: null,
+  terms: null,
   companyName: 'Acme Corp',
+  seller: { name: null, logoUrl: null },
   lineItems: [
     { name: 'Homepage redesign', quantity: 1, unitPriceMicros: majorToMicros(4000) },
     { name: 'Mobile version', quantity: 1, unitPriceMicros: majorToMicros(2500) },
@@ -107,16 +110,77 @@ describe('renderMessagePage', () => {
   });
 });
 
-describe('toQuoteReference', () => {
-  it('builds a short uppercase reference from the quote id', () => {
-    expect(toQuoteReference('fb2cede7-d0c0-478d-840d-520e170bf1d0')).toBe('Q-FB2CEDE7');
-  });
-});
-
 describe('escapeHtml', () => {
   it('escapes all HTML-significant characters', () => {
     expect(escapeHtml(`<a href="x" onclick='y'>&</a>`)).toBe(
       '&lt;a href=&quot;x&quot; onclick=&#39;y&#39;&gt;&amp;&lt;/a&gt;',
     );
+  });
+});
+
+describe('renderQuotePage details', () => {
+  it('shows the seller, validity date, message and terms', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        seller: { name: 'Northwind Studio', logoUrl: 'https://northwind.test/logo.png' },
+        expiresAt: '2026-11-17',
+        message: 'Thanks for the call!\nHere is the proposal.',
+        terms: 'Net 30. 50% upfront.',
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).toContain('<img src="https://northwind.test/logo.png" alt="Northwind Studio">');
+    expect(html).toContain('<span>Northwind Studio</span>');
+    expect(html).toContain('Valid until November 17, 2026');
+    expect(html).toContain('<p class="prose">Thanks for the call!\nHere is the proposal.</p>');
+    expect(html).toContain('<h2>Terms</h2><p class="terms">Net 30. 50% upfront.</p>');
+  });
+
+  it('escapes the seller name, message and terms', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        seller: { name: '<b>Evil</b>', logoUrl: null },
+        message: '<script>x</script>',
+        terms: '<img src=x onerror=y>',
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).not.toContain('<b>Evil</b>');
+    expect(html).not.toContain('<script>x</script>');
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;b&gt;Evil&lt;/b&gt;');
+  });
+
+  it('replaces the accept button with an expiry notice once expired', () => {
+    const html = renderQuotePage({
+      quote: quote({ expiresAt: '2026-10-01' }),
+      acceptActionUrl: './abc/accept',
+      isExpired: true,
+    });
+
+    expect(html).not.toContain('<form');
+    expect(html).toContain('This quote expired on October 1, 2026');
+  });
+
+  it('renders a preview with a banner and no working actions', () => {
+    const html = renderQuotePage({ quote: quote(), acceptActionUrl: '', isPreview: true });
+
+    expect(html).toContain('Preview — this is what your client will see');
+    expect(html).not.toContain('<form');
+    expect(html).toContain('<button type="button" disabled>Accept quote</button>');
+    expect(html).toContain('onclick="window.print()" disabled');
+  });
+
+  it('omits empty optional sections', () => {
+    const html = renderQuotePage({
+      quote: quote({ message: '   ', terms: '' }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).not.toContain('class="prose"');
+    expect(html).not.toContain('<h2>Terms</h2>');
+    expect(html).not.toContain('class="seller"');
   });
 });

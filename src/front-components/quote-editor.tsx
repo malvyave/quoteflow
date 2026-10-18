@@ -4,14 +4,16 @@ import { RestApiClient } from 'twenty-client-sdk/rest';
 import {
   copyToClipboard,
   enqueueSnackbar,
+  getApplicationVariable,
   openCommandConfirmationModal,
   useSelectedRecordIds,
 } from 'twenty-sdk/front-component';
 import { Tag } from 'twenty-ui/primitives/data-display';
 import {
   IconCopy,
-  IconExternalLink,
   IconDownload,
+  IconExternalLink,
+  IconEye,
   IconPlus,
   IconSend,
   IconTrash,
@@ -25,14 +27,18 @@ import {
   computeDraftTotals,
   loadQuoteDraft,
   newLineItemDraft,
+  parseNumber,
   saveQuoteDraft,
   sendQuote,
   withdrawQuote,
   type LineItemDraft,
   type QuoteDraft,
 } from 'src/utils/quote-api';
+import { renderQuotePage, type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
-import { formatMoney } from 'src/utils/quote-totals';
+import { addDays, isQuoteExpired, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
+import { loadQuoteSeller } from 'src/utils/quote-seller';
+import { formatMoney, majorToMicros } from 'src/utils/quote-totals';
 
 const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'AED', 'CHF', 'JPY'];
 
@@ -46,6 +52,16 @@ const STATUS_TAGS: Record<
   [QuoteStatus.DECLINED]: { label: 'Declined', color: 'red' },
   [QuoteStatus.SUPERSEDED]: { label: 'Superseded', color: 'orange' },
 };
+
+const VALIDITY_PRESET_DAYS = [7, 14, 30, 60, 90];
+
+const formatShortDate = (isoDate: string) =>
+  new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 
 // Keeps digits and the first decimal point, so amounts can't go negative or contain letters.
 const toDecimalInput = (value: string) => {
@@ -67,6 +83,15 @@ const QuoteEditor = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [seller, setSeller] = useState<QuoteSeller>({ name: null, logoUrl: null });
+
+  useEffect(() => {
+    loadQuoteSeller({
+      sellerName: getApplicationVariable('SELLER_NAME'),
+      sellerLogoUrl: getApplicationVariable('SELLER_LOGO_URL'),
+    }).then(setSeller);
+  }, []);
 
   const load = useCallback(async () => {
     if (!opportunityId) {
@@ -130,6 +155,7 @@ const QuoteEditor = () => {
       } satisfies CSSProperties,
       input,
       numberInput: { ...input, textAlign: 'right' } satisfies CSSProperties,
+      textarea: { ...input, resize: 'vertical', lineHeight: 1.5 } satisfies CSSProperties,
       amount: {
         textAlign: 'right',
         fontVariantNumeric: 'tabular-nums',
@@ -331,6 +357,60 @@ const QuoteEditor = () => {
     }
   };
 
+  if (isPreviewing) {
+    // The same renderer as the public page, fed with the unsaved draft.
+    const previewHtml = renderQuotePage({
+      quote: {
+        reference: draft.number !== null ? toQuoteReference('', draft.number) : 'Draft',
+        name: draft.name.trim() || 'Quote',
+        status: draft.status,
+        currencyCode: draft.currencyCode,
+        discountPercent: parseNumber(draft.discountPercent),
+        taxPercent: parseNumber(draft.taxPercent),
+        sentAt: draft.sentAt,
+        acceptedAt: draft.acceptedAt,
+        expiresAt: draft.expiresAt || null,
+        message: draft.message,
+        terms: draft.terms,
+        companyName: draft.companyName,
+        seller,
+        lineItems: draft.lineItems
+          .filter((lineItem) => lineItem.name.trim() !== '')
+          .map((lineItem) => ({
+            name: lineItem.name,
+            quantity: parseNumber(lineItem.quantity),
+            unitPriceMicros: majorToMicros(parseNumber(lineItem.unitPrice)),
+          })),
+      },
+      acceptActionUrl: '',
+      isPreview: true,
+      isExpired: isQuoteExpired(draft.expiresAt, new Date()),
+    });
+
+    return (
+      <div style={styles.root}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={styles.muted}>Preview as buyer{isDirty ? ' (includes unsaved changes)' : ''}</span>
+          <Button variant="outline" color="neutral" size="sm" onClick={() => setIsPreviewing(false)}>
+            Back to editing
+          </Button>
+        </div>
+        <iframe
+          title="Quote preview"
+          srcDoc={previewHtml}
+          sandbox=""
+          style={{
+            width: '100%',
+            height: '720px',
+            border: `1px solid ${theme.border.color.medium}`,
+            borderRadius: theme.border.radius.md,
+            background: theme.background.primary,
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={styles.root}>
       <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
@@ -341,6 +421,9 @@ const QuoteEditor = () => {
           onChange={(event) => updateDraft({ name: event.target.value })}
           style={{ ...styles.input, fontWeight: theme.font.weight.medium, flex: 1 }}
         />
+        {draft.number !== null && (
+          <span style={styles.muted}>{toQuoteReference('', draft.number)}</span>
+        )}
         <Tag color={statusTag.color}>{statusTag.label}</Tag>
       </div>
 
@@ -462,7 +545,60 @@ const QuoteEditor = () => {
             style={{ ...styles.numberInput, width: '96px' }}
           />
         </label>
+        {/* A select, not a date input: native date pickers do not open inside the component sandbox. */}
+        <label style={styles.label}>
+          Valid until
+          <select
+            value={draft.expiresAt === '' ? 'none' : 'current'}
+            disabled={!isEditable}
+            onChange={(event) =>
+              updateDraft({
+                expiresAt:
+                  event.target.value === 'none'
+                    ? ''
+                    : event.target.value === 'current'
+                      ? draft.expiresAt
+                      : toIsoDate(addDays(new Date(), Number(event.target.value))),
+              })
+            }
+            style={{ ...styles.input, width: 'auto' }}
+          >
+            {draft.expiresAt !== '' && (
+              <option value="current">{formatShortDate(draft.expiresAt)}</option>
+            )}
+            {VALIDITY_PRESET_DAYS.map((days) => (
+              <option key={days} value={String(days)}>
+                {days} days — until {formatShortDate(toIsoDate(addDays(new Date(), days)))}
+              </option>
+            ))}
+            <option value="none">No expiry</option>
+          </select>
+        </label>
       </div>
+
+      <label style={styles.label}>
+        Message to client
+        <textarea
+          rows={3}
+          placeholder="e.g. Thanks for your time today. Here is the proposal we discussed."
+          value={draft.message}
+          disabled={!isEditable}
+          onChange={(event) => updateDraft({ message: event.target.value })}
+          style={styles.textarea}
+        />
+      </label>
+
+      <label style={styles.label}>
+        Terms
+        <textarea
+          rows={3}
+          placeholder="e.g. Payment due within 30 days. Prices exclude travel."
+          value={draft.terms}
+          disabled={!isEditable}
+          onChange={(event) => updateDraft({ terms: event.target.value })}
+          style={styles.textarea}
+        />
+      </label>
 
       <div style={styles.summary}>
         <span style={styles.muted}>Subtotal</span>
@@ -528,6 +664,15 @@ const QuoteEditor = () => {
         {isEditable && isDirty && (
           <span style={{ ...styles.muted, alignSelf: 'center' }}>Unsaved changes</span>
         )}
+        <Button
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          startIcon={<IconEye size={theme.icon.size.sm} />}
+          onClick={() => setIsPreviewing(true)}
+        >
+          Preview as buyer
+        </Button>
         {isEditable && (
           <Button
             variant={isDirty || draft.id === null ? 'solid' : 'outline'}

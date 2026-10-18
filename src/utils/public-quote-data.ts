@@ -2,7 +2,9 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { DEFAULT_WON_STAGE } from 'src/constants/universal-identifiers';
 import { QuoteStatus } from 'src/objects/quote.object';
-import { toQuoteReference, type PublicQuote } from 'src/utils/public-quote-page';
+import { type PublicQuote } from 'src/utils/public-quote-page';
+import { toQuoteReference } from 'src/utils/quote-details';
+import { loadQuoteSeller } from 'src/utils/quote-seller';
 
 export type PublicQuoteRecord = PublicQuote & {
   id: string;
@@ -29,6 +31,10 @@ export const findQuoteByPublicToken = async (
           taxPercent: true,
           sentAt: true,
           acceptedAt: true,
+          expiresAt: true,
+          message: true,
+          terms: true,
+          number: true,
           total: { amountMicros: true },
           opportunity: { id: true, companyId: true },
         },
@@ -44,6 +50,10 @@ export const findQuoteByPublicToken = async (
 
   // Line items and the company are separate queries: relations nested two levels deep come back empty.
   const companyId = quote.opportunity?.companyId;
+  const sellerPromise = loadQuoteSeller({
+    sellerName: process.env.SELLER_NAME,
+    sellerLogoUrl: process.env.SELLER_LOGO_URL,
+  });
   const { quoteLineItems, company } = await client.query({
     quoteLineItems: {
       __args: {
@@ -63,7 +73,7 @@ export const findQuoteByPublicToken = async (
     id: quote.id,
     opportunityId: quote.opportunity?.id ?? null,
     totalMicros: Number(quote.total?.amountMicros ?? 0),
-    reference: toQuoteReference(quote.id),
+    reference: toQuoteReference(quote.id, quote.number),
     name: quote.name ?? 'Quote',
     status: quote.status ?? QuoteStatus.DRAFT,
     currencyCode: quote.currencyCode ?? 'USD',
@@ -71,7 +81,11 @@ export const findQuoteByPublicToken = async (
     taxPercent: quote.taxPercent ?? 0,
     sentAt: quote.sentAt ?? null,
     acceptedAt: quote.acceptedAt ?? null,
+    expiresAt: quote.expiresAt ?? null,
+    message: quote.message ?? null,
+    terms: quote.terms ?? null,
     companyName: company?.name ?? null,
+    seller: await sellerPromise,
     lineItems: (quoteLineItems?.edges ?? []).map(({ node }) => ({
       name: node.name ?? '',
       quantity: node.quantity ?? 0,

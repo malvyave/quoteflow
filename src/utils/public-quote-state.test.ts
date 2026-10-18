@@ -23,26 +23,44 @@ describe('getPublicPageState', () => {
 
 describe('decideAcceptance', () => {
   it('accepts a sent quote when no other quote on the deal was accepted', () => {
-    expect(decideAcceptance({ status: QuoteStatus.SENT, hasOtherAcceptedQuote: false })).toBe(
+    expect(decideAcceptance({ status: QuoteStatus.SENT, hasOtherAcceptedQuote: false, isExpired: false })).toBe(
       'accept',
     );
   });
 
   it('is idempotent for a quote that is already accepted', () => {
-    expect(decideAcceptance({ status: QuoteStatus.ACCEPTED, hasOtherAcceptedQuote: false })).toBe(
+    expect(decideAcceptance({ status: QuoteStatus.ACCEPTED, hasOtherAcceptedQuote: false, isExpired: false })).toBe(
       'already-accepted',
     );
   });
 
   it('refuses when another quote on the same deal already won', () => {
-    expect(decideAcceptance({ status: QuoteStatus.SENT, hasOtherAcceptedQuote: true })).toBe(
+    expect(decideAcceptance({ status: QuoteStatus.SENT, hasOtherAcceptedQuote: true, isExpired: false })).toBe(
       'unavailable',
     );
   });
 
   it('refuses drafts, superseded and declined quotes', () => {
     for (const status of [QuoteStatus.DRAFT, QuoteStatus.SUPERSEDED, QuoteStatus.DECLINED]) {
-      expect(decideAcceptance({ status, hasOtherAcceptedQuote: false })).toBe('unavailable');
+      expect(decideAcceptance({ status, hasOtherAcceptedQuote: false, isExpired: false })).toBe('unavailable');
     }
+  });
+});
+
+describe('decideAcceptance with expiry', () => {
+  it('refuses an expired sent quote', () => {
+    expect(
+      decideAcceptance({ status: QuoteStatus.SENT, hasOtherAcceptedQuote: false, isExpired: true }),
+    ).toBe('expired');
+  });
+
+  it('still reports an accepted quote as accepted after its expiry date', () => {
+    expect(
+      decideAcceptance({
+        status: QuoteStatus.ACCEPTED,
+        hasOtherAcceptedQuote: false,
+        isExpired: true,
+      }),
+    ).toBe('already-accepted');
   });
 });

@@ -15,6 +15,7 @@ import {
 } from 'src/utils/public-quote-responses';
 import { decideAcceptance, getPublicPageState } from 'src/utils/public-quote-state';
 import { isValidPublicToken, PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { isQuoteExpired } from 'src/utils/quote-details';
 
 const handler = async (event: RoutePayload) => {
   const token = event.pathParameters?.token;
@@ -35,10 +36,16 @@ const handler = async (event: RoutePayload) => {
     return quoteUnavailableResponse(state);
   }
 
+  const isExpired = isQuoteExpired(quote.expiresAt, new Date());
   const decision = decideAcceptance({
     status: quote.status,
     hasOtherAcceptedQuote: await hasOtherAcceptedQuote(quote),
+    isExpired,
   });
+
+  if (decision === 'expired') {
+    return htmlResponse(renderQuotePage({ quote, acceptActionUrl: '', isExpired }), 410);
+  }
 
   // Submitting twice (double click, refresh) just shows the accepted quote again.
   if (decision === 'already-accepted') {

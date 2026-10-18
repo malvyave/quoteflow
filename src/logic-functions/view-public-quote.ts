@@ -2,6 +2,7 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 import { type RoutePayload } from 'twenty-sdk/logic-function';
 
 import { VIEW_PUBLIC_QUOTE_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
+import { QuoteStatus } from 'src/objects/quote.object';
 import { findQuoteByPublicToken } from 'src/utils/public-quote-data';
 import { renderQuotePage } from 'src/utils/public-quote-page';
 import {
@@ -11,6 +12,7 @@ import {
 } from 'src/utils/public-quote-responses';
 import { getPublicPageState } from 'src/utils/public-quote-state';
 import { isValidPublicToken, PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { isQuoteExpired } from 'src/utils/quote-details';
 
 const handler = async (event: RoutePayload) => {
   const token = event.pathParameters?.token;
@@ -36,6 +38,7 @@ const handler = async (event: RoutePayload) => {
       quote,
       acceptActionUrl: `./${token}/accept`,
       autoPrint: event.queryStringParameters?.print === '1',
+      isExpired: quote.status === QuoteStatus.SENT && isQuoteExpired(quote.expiresAt, new Date()),
     }),
   );
 };

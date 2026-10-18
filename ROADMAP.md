@@ -1,26 +1,32 @@
 # Roadmap
 
+Product name: QuoteFlow for Twenty (design doc v3).
+
 ## v1 (MVP)
 
-Scope from the design doc, plus:
+Scope from the design doc v3:
 
+- Line-item editor with live totals, whole-quote discount and tax.
 - Each quote uses one currency, taken from its opportunity's amount.
+- Send Quote gives a public link for the user to copy. The app does not send email.
+- Accepting a quote marks the opportunity Won (configurable stage) and sets its amount to the quote total.
+- Printable / PDF view.
+- Expiration date ("valid until"), preview as buyer, message to client, terms.
+- Seller name and logo on the quote (workspace name, or the Seller name / Seller logo URL settings).
+- Sequential quote numbers (Q-0001), assigned when a quote is first sent.
+- Stripe free / paid gating (5 active quotes free).
 
 Decisions:
 
 - Discount and tax are set once per quote (not per line item). Tax is a percentage the user enters.
-- "Send Quote" produces a public link for the user to copy. The app does not send email.
-- Accepting a quote marks the opportunity Won and sets its amount to the quote total.
+- Only one quote per opportunity can be accepted; the others become Superseded.
 
-## v2 (in rough priority order)
+## v2 (post-launch, ordered by expected demand)
 
-1. Expiration date: the public page shows the quote as expired after it.
-2. Quote numbers (Q-0001).
-3. Workspace logo on the public page.
-4. Per-line-item discounts.
-5. Duplicate a quote (for revisions).
-6. Tax label ("GST", "VAT", "Sales tax").
-7. Saved tax rate presets.
-8. Email the quote from the app.
-9. Notify the user when the client views the quote.
-10. Product catalog, approvals, e-signature, payments.
+1. Decline button.
+2. Per-line-item discounts.
+3. Duplicate a quote, and a list of all quotes on a deal in the Quote tab.
+4. Tax label ("GST", "VAT") and saved tax rate presets.
+5. View tracking / notifications.
+6. Product catalog.
+7. Email from the app, e-signature, payments.

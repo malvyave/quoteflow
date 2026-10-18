@@ -2,6 +2,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { RestApiClient, RestApiClientError } from 'twenty-client-sdk/rest';
 
 import { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { addDays, DEFAULT_VALIDITY_DAYS, toIsoDate } from 'src/utils/quote-details';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
 
 export const DEFAULT_CURRENCY_CODE = 'USD';
@@ -20,9 +21,19 @@ export type QuoteDraft = {
   name: string;
   status: string;
   publicToken: string | null;
+  // Set by the app when the quote is first sent; read-only here.
+  number: number | null;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  // The client's company, shown in the buyer preview; not saved from the editor.
+  companyName: string | null;
   currencyCode: string;
   discountPercent: string;
   taxPercent: string;
+  // YYYY-MM-DD, or '' for no expiry.
+  expiresAt: string;
+  message: string;
+  terms: string;
   lineItems: LineItemDraft[];
 };
 
@@ -61,6 +72,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
       __args: { filter: { id: { eq: opportunityId } } },
       name: true,
       amount: { currencyCode: true },
+      company: { name: true },
     },
     quotes: {
       __args: {
@@ -74,15 +86,22 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
           name: true,
           status: true,
           publicToken: true,
+          number: true,
+          sentAt: true,
+          acceptedAt: true,
           currencyCode: true,
           discountPercent: true,
           taxPercent: true,
+          expiresAt: true,
+          message: true,
+          terms: true,
         },
       },
     },
   });
 
   const quote = quotes?.edges[0]?.node;
+  const companyName = opportunity?.company?.name ?? null;
 
   if (!quote) {
     return {
@@ -90,9 +109,16 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
       name: opportunity?.name ? `${opportunity.name} quote` : 'Quote',
       status: 'DRAFT',
       publicToken: null,
+      number: null,
+      sentAt: null,
+      acceptedAt: null,
+      companyName,
       currencyCode: opportunity?.amount?.currencyCode || DEFAULT_CURRENCY_CODE,
       discountPercent: '0',
       taxPercent: '0',
+      expiresAt: toIsoDate(addDays(new Date(), DEFAULT_VALIDITY_DAYS)),
+      message: '',
+      terms: '',
       lineItems: [newLineItemDraft()],
     };
   }
@@ -120,9 +146,16 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
     name: quote.name ?? '',
     status: quote.status ?? 'DRAFT',
     publicToken: quote.publicToken ?? null,
+    number: quote.number ?? null,
+    sentAt: quote.sentAt ?? null,
+    acceptedAt: quote.acceptedAt ?? null,
+    companyName,
     currencyCode: quote.currencyCode || DEFAULT_CURRENCY_CODE,
     discountPercent: String(quote.discountPercent ?? 0),
     taxPercent: String(quote.taxPercent ?? 0),
+    expiresAt: quote.expiresAt?.slice(0, 10) ?? '',
+    message: quote.message ?? '',
+    terms: quote.terms ?? '',
     lineItems: (quoteLineItems?.edges ?? []).map(({ node }) => ({
       key: node.id,
       id: node.id,
@@ -152,6 +185,9 @@ export const saveQuoteDraft = async ({
     currencyCode,
     discountPercent: parseNumber(draft.discountPercent),
     taxPercent: parseNumber(draft.taxPercent),
+    expiresAt: draft.expiresAt || null,
+    message: draft.message.trim() || null,
+    terms: draft.terms.trim() || null,
     subtotal: { amountMicros: totals.subtotalMicros, currencyCode },
     total: { amountMicros: totals.totalMicros, currencyCode },
   };

@@ -5,6 +5,8 @@ import {
   APP_DISPLAY_NAME,
   APPLICATION_UNIVERSAL_IDENTIFIER,
   DEFAULT_WON_STAGE,
+  SELLER_LOGO_URL_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_NAME_VARIABLE_UNIVERSAL_IDENTIFIER,
   WON_STAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
 } from 'src/constants/universal-identifiers';
 
@@ -19,6 +21,21 @@ export default defineApplication({
       description:
         'Opportunity stage value set when a client accepts a quote. Change it if your pipeline renamed the default "Customer" stage. If the value does not exist, only the amount is updated.',
       value: DEFAULT_WON_STAGE,
+      isSecret: false,
+    },
+    SELLER_NAME: {
+      universalIdentifier: SELLER_NAME_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller name',
+      description: 'Company name shown on quotes. Leave empty to use the workspace name.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_LOGO_URL: {
+      universalIdentifier: SELLER_LOGO_URL_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller logo URL',
+      description:
+        'Public https link to a logo image shown on quotes. Leave empty to use the workspace logo, if any.',
+      value: '',
       isSecret: false,
     },
   },
