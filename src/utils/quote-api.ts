@@ -2,6 +2,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { RestApiClient, RestApiClientError } from 'twenty-client-sdk/rest';
 
 import { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { type PlanStatus } from 'src/utils/billing';
 import { addDays, DEFAULT_VALIDITY_DAYS, toIsoDate } from 'src/utils/quote-details';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
 
@@ -276,3 +277,23 @@ const runQuoteAction = async (action: 'send' | 'withdraw', quoteId: string) => {
 export const sendQuote = (quoteId: string) => runQuoteAction('send', quoteId);
 
 export const withdrawQuote = (quoteId: string) => runQuoteAction('withdraw', quoteId);
+
+export type { PlanStatus } from 'src/utils/billing';
+
+export const loadPlanStatus = () =>
+  new RestApiClient().get<PlanStatus>(`/s${QUOTE_ACTIONS_ROUTE_PREFIX}/plan`);
+
+export const startUpgrade = async () => {
+  try {
+    return await new RestApiClient().post<{ kind: 'checkout' | 'portal'; url: string }>(
+      `/s${QUOTE_ACTIONS_ROUTE_PREFIX}/upgrade`,
+    );
+  } catch (error) {
+    const message =
+      error instanceof RestApiClientError
+        ? (error.body as { error?: string } | undefined)?.error
+        : undefined;
+
+    throw new Error(message ?? 'Could not open billing.');
+  }
+};

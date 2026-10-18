@@ -10,3 +10,5 @@ export const isValidPublicToken = (token: string | undefined): token is string =
 export const PUBLIC_QUOTE_ROUTE_PREFIX = '/quote';
 
 export const QUOTE_ACTIONS_ROUTE_PREFIX = '/quote-actions';
+
+export const BILLING_DONE_ROUTE = '/billing/done';

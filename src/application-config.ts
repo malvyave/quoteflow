@@ -39,4 +39,17 @@ export default defineApplication({
       isSecret: false,
     },
   },
+  // Set once per Twenty server by the app owner. Without a secret key billing is off and
+  // there is no quote limit (self-hosted servers and local development).
+  serverVariables: {
+    STRIPE_SECRET_KEY: {
+      description:
+        'Stripe secret key (sk_live_… or sk_test_…). Turns on the free plan limit and paid upgrades.',
+      isSecret: true,
+    },
+    STRIPE_PRICE_ID: {
+      description: 'Stripe price ID (price_…) of the monthly QuoteFlow subscription.',
+      isSecret: false,
+    },
+  },
 });

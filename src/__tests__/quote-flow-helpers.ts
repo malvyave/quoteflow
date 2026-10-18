@@ -1,3 +1,4 @@
+import { APPLICATION_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 import { computeQuoteTotals, majorToMicros } from 'src/utils/quote-totals';
 
 // Talks to a running Twenty server the way a member and a client would: GraphQL with the
@@ -228,3 +229,46 @@ export const destroyDeals = async (opportunityIds: string[]) => {
 
 export const isoDateFromToday = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+// Server variables (Stripe keys) belong to the app registration, not the workspace install.
+export const setServerVariable = async (key: string, value: string | null) => {
+  const lookup = await metadata<{
+    findApplicationRegistrationByUniversalIdentifier: { id: string } | null;
+  }>(`query($id: String!) { findApplicationRegistrationByUniversalIdentifier(universalIdentifier: $id) { id } }`, {
+    id: APPLICATION_UNIVERSAL_IDENTIFIER,
+  });
+  const registrationId = lookup.data?.findApplicationRegistrationByUniversalIdentifier?.id;
+
+  if (!registrationId) {
+    throw new Error('QuoteFlow registration not found');
+  }
+
+  const variables = await metadata<{
+    findApplicationRegistrationVariables: { id: string; key: string }[];
+  }>(`query($id: String!) { findApplicationRegistrationVariables(applicationRegistrationId: $id) { id key } }`, {
+    id: registrationId,
+  });
+  const variableId = variables.data?.findApplicationRegistrationVariables.find(
+    (variable) => variable.key === key,
+  )?.id;
+
+  if (!variableId) {
+    throw new Error(`Server variable ${key} not found`);
+  }
+
+  const result = await metadata(
+    `mutation($input: UpdateApplicationRegistrationVariableInput!) {
+      updateApplicationRegistrationVariable(input: $input) { id } }`,
+    { input: { id: variableId, update: value === null ? { resetValue: true } : { value } } },
+  );
+
+  if (result.errors?.length) {
+    throw new Error(`Could not set ${key}: ${result.errors.map((error) => error.message).join('; ')}`);
+  }
+};
+
+export const callAppRoute = async (method: 'GET' | 'POST', path: string) => {
+  const response = await fetch(`${apiUrl()}/s${path}`, { method, headers: authHeaders() });
+
+  return { status: response.status, body: await response.text() };
+};

@@ -27,11 +27,14 @@ import {
   computeDraftTotals,
   loadQuoteDraft,
   newLineItemDraft,
+  loadPlanStatus,
   parseNumber,
   saveQuoteDraft,
   sendQuote,
+  startUpgrade,
   withdrawQuote,
   type LineItemDraft,
+  type PlanStatus,
   type QuoteDraft,
 } from 'src/utils/quote-api';
 import { renderQuotePage, type QuoteSeller } from 'src/utils/public-quote-page';
@@ -85,6 +88,18 @@ const QuoteEditor = () => {
   const [isChangingStatus, setIsChangingStatus] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [seller, setSeller] = useState<QuoteSeller>({ name: null, logoUrl: null });
+  const [plan, setPlan] = useState<PlanStatus | null>(null);
+  const [billingUrl, setBillingUrl] = useState<{ kind: 'checkout' | 'portal'; url: string } | null>(
+    null,
+  );
+  const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+
+  // The plan bar is informational: if it cannot load, the editor still works.
+  const refreshPlan = useCallback(() => {
+    loadPlanStatus()
+      .then(setPlan)
+      .catch(() => setPlan(null));
+  }, []);
 
   useEffect(() => {
     loadQuoteSeller({
@@ -106,10 +121,11 @@ const QuoteEditor = () => {
       setDraft(loaded);
       setSavedSnapshot(JSON.stringify(loaded));
       setRemovedLineItemIds([]);
+      refreshPlan();
     } catch (error) {
       setLoadError(getErrorMessage(error));
     }
-  }, [opportunityId]);
+  }, [opportunityId, refreshPlan]);
 
   useEffect(() => {
     load();
@@ -349,6 +365,20 @@ const QuoteEditor = () => {
       action: withdrawQuote,
       successMessage: 'Quote moved back to draft',
     });
+
+  // Opening a new tab needs a direct click on a link, so this fetches the Stripe URL first and
+  // then shows a button that links to it.
+  const openBilling = async () => {
+    setIsOpeningBilling(true);
+
+    try {
+      setBillingUrl(await startUpgrade());
+    } catch (error) {
+      enqueueSnackbar({ message: getErrorMessage(error), variant: 'error' });
+    } finally {
+      setIsOpeningBilling(false);
+    }
+  };
 
   // Twenty shows its own "copied" or "couldn't copy" toast, so none is added here.
   const copyLink = () => {
@@ -657,6 +687,52 @@ const QuoteEditor = () => {
               rel="noopener noreferrer"
             />
           </div>
+        </div>
+      )}
+
+      {plan?.billingEnabled && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: theme.spacing[2],
+            flexWrap: 'wrap',
+            padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
+            border: `1px solid ${theme.border.color.light}`,
+            borderRadius: theme.border.radius.md,
+          }}
+        >
+          <span style={styles.muted}>
+            {plan.isPaid
+              ? 'QuoteFlow paid plan · unlimited quotes'
+              : `Free plan · ${Math.min(plan.activeQuoteCount, plan.freeLimit)} of ${plan.freeLimit} active quotes`}
+          </span>
+          {billingUrl ? (
+            <Button
+              variant="solid"
+              color="accent"
+              size="sm"
+              startIcon={<IconExternalLink size={theme.icon.size.sm} />}
+              href={billingUrl.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setBillingUrl(null)}
+            >
+              {billingUrl.kind === 'portal' ? 'Open billing portal' : 'Continue to checkout'}
+            </Button>
+          ) : (
+            <Button
+              variant={plan.isPaid ? 'ghost' : 'outline'}
+              color="neutral"
+              size="sm"
+              loading={isOpeningBilling}
+              disabled={isOpeningBilling}
+              onClick={openBilling}
+            >
+              {plan.isPaid ? 'Manage billing' : 'Upgrade'}
+            </Button>
+          )}
         </div>
       )}
 

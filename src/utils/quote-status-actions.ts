@@ -3,6 +3,8 @@ import { Response, type RoutePayload } from 'twenty-sdk/logic-function';
 
 import { QuoteStatus } from 'src/objects/quote.object';
 import { generatePublicToken } from 'src/utils/public-quote-token';
+import { canSendAnotherQuote, FREE_ACTIVE_QUOTE_LIMIT } from 'src/utils/billing';
+import { countActiveQuotes, getBillingConfig, getEntitlement } from 'src/utils/billing-server';
 import { isQuoteExpired } from 'src/utils/quote-details';
 
 export { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
@@ -102,6 +104,22 @@ export const sendQuoteAction = async (quoteId: unknown) => {
 
   if (isQuoteExpired(quote.expiresAt, new Date())) {
     throw new QuoteActionError('The "valid until" date is in the past. Pick a later date.', 422);
+  }
+
+  if (getBillingConfig().enabled) {
+    const plan = {
+      billingEnabled: true,
+      isPaid: (await getEntitlement()).isPaid,
+      activeQuoteCount: await countActiveQuotes(),
+      freeLimit: FREE_ACTIVE_QUOTE_LIMIT,
+    };
+
+    if (!canSendAnotherQuote(plan)) {
+      throw new QuoteActionError(
+        `The free plan allows ${FREE_ACTIVE_QUOTE_LIMIT} active quotes. Upgrade to send more, or withdraw a sent quote.`,
+        402,
+      );
+    }
   }
 
   const sendData = {
