@@ -36,11 +36,15 @@ import { formatMoney } from 'src/utils/quote-totals';
 
 const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'AED', 'CHF', 'JPY'];
 
-const STATUS_TAGS: Record<string, { label: string; color: 'gray' | 'blue' | 'green' | 'red' }> = {
+const STATUS_TAGS: Record<
+  string,
+  { label: string; color: 'gray' | 'blue' | 'green' | 'red' | 'orange' }
+> = {
   [QuoteStatus.DRAFT]: { label: 'Draft', color: 'gray' },
   [QuoteStatus.SENT]: { label: 'Sent', color: 'blue' },
   [QuoteStatus.ACCEPTED]: { label: 'Accepted', color: 'green' },
   [QuoteStatus.DECLINED]: { label: 'Declined', color: 'red' },
+  [QuoteStatus.SUPERSEDED]: { label: 'Superseded', color: 'orange' },
 };
 
 // Keeps digits and the first decimal point, so amounts can't go negative or contain letters.

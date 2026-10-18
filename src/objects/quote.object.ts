@@ -1,6 +1,7 @@
 import {
   defineObject,
   FieldType,
+  MetadataWritability,
   OnDeleteAction,
   RelationType,
   STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
@@ -29,6 +30,7 @@ export enum QuoteStatus {
   SENT = 'SENT',
   ACCEPTED = 'ACCEPTED',
   DECLINED = 'DECLINED',
+  SUPERSEDED = 'SUPERSEDED',
 }
 
 export default defineObject({
@@ -46,6 +48,7 @@ export default defineObject({
       type: FieldType.SELECT,
       label: 'Status',
       icon: 'IconProgressCheck',
+      writability: MetadataWritability.APPLICATION,
       isNullable: false,
       defaultValue: `'${QuoteStatus.DRAFT}'`,
       options: [
@@ -53,6 +56,7 @@ export default defineObject({
         { value: QuoteStatus.SENT, label: 'Sent', position: 1, color: 'blue' },
         { value: QuoteStatus.ACCEPTED, label: 'Accepted', position: 2, color: 'green' },
         { value: QuoteStatus.DECLINED, label: 'Declined', position: 3, color: 'red' },
+        { value: QuoteStatus.SUPERSEDED, label: 'Superseded', position: 4, color: 'orange' },
       ],
     },
     {
@@ -110,6 +114,8 @@ export default defineObject({
       label: 'Public token',
       description: 'Secret token for the client-facing quote link',
       icon: 'IconKey',
+      writability: MetadataWritability.APPLICATION,
+      isUnique: true,
     },
     {
       universalIdentifier: QUOTE_SENT_AT_FIELD_UNIVERSAL_IDENTIFIER,
@@ -117,6 +123,7 @@ export default defineObject({
       type: FieldType.DATE_TIME,
       label: 'Sent at',
       icon: 'IconSend',
+      writability: MetadataWritability.APPLICATION,
     },
     {
       universalIdentifier: QUOTE_ACCEPTED_AT_FIELD_UNIVERSAL_IDENTIFIER,
@@ -124,6 +131,7 @@ export default defineObject({
       type: FieldType.DATE_TIME,
       label: 'Accepted at',
       icon: 'IconCircleCheck',
+      writability: MetadataWritability.APPLICATION,
     },
     {
       universalIdentifier: QUOTE_OPPORTUNITY_FIELD_UNIVERSAL_IDENTIFIER,

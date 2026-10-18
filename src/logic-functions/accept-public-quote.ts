@@ -2,10 +2,18 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 import { type RoutePayload } from 'twenty-sdk/logic-function';
 
 import { ACCEPT_PUBLIC_QUOTE_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
-import { QuoteStatus } from 'src/objects/quote.object';
-import { acceptQuote, findQuoteByPublicToken } from 'src/utils/public-quote-data';
+import {
+  acceptQuote,
+  findQuoteByPublicToken,
+  hasOtherAcceptedQuote,
+} from 'src/utils/public-quote-data';
 import { renderMessagePage, renderQuotePage } from 'src/utils/public-quote-page';
-import { htmlResponse, quoteNotFoundResponse } from 'src/utils/public-quote-responses';
+import {
+  htmlResponse,
+  quoteNotFoundResponse,
+  quoteUnavailableResponse,
+} from 'src/utils/public-quote-responses';
+import { decideAcceptance, getPublicPageState } from 'src/utils/public-quote-state';
 import { isValidPublicToken, PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 
 const handler = async (event: RoutePayload) => {
@@ -17,20 +25,31 @@ const handler = async (event: RoutePayload) => {
 
   const quote = await findQuoteByPublicToken(token);
 
-  if (!quote || quote.status === QuoteStatus.DRAFT) {
+  if (!quote) {
     return quoteNotFoundResponse();
   }
 
+  const state = getPublicPageState(quote.status);
+
+  if (state !== 'quote') {
+    return quoteUnavailableResponse(state);
+  }
+
+  const decision = decideAcceptance({
+    status: quote.status,
+    hasOtherAcceptedQuote: await hasOtherAcceptedQuote(quote),
+  });
+
   // Submitting twice (double click, refresh) just shows the accepted quote again.
-  if (quote.status === QuoteStatus.ACCEPTED) {
+  if (decision === 'already-accepted') {
     return htmlResponse(renderQuotePage({ quote, acceptActionUrl: '' }));
   }
 
-  if (quote.status !== QuoteStatus.SENT) {
+  if (decision === 'unavailable') {
     return htmlResponse(
       renderMessagePage(
         'Quote not available',
-        'This quote can no longer be accepted. Please contact the sender.',
+        'Another quote for this deal has already been accepted. Please contact the sender.',
       ),
       409,
     );

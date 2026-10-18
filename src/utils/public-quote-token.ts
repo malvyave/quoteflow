@@ -8,3 +8,5 @@ export const isValidPublicToken = (token: string | undefined): token is string =
   typeof token === 'string' && /^[0-9a-f]{64}$/.test(token);
 
 export const PUBLIC_QUOTE_ROUTE_PREFIX = '/quote';
+
+export const QUOTE_ACTIONS_ROUTE_PREFIX = '/quote-actions';

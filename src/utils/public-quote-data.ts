@@ -1,5 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
+import { DEFAULT_WON_STAGE } from 'src/constants/universal-identifiers';
 import { QuoteStatus } from 'src/objects/quote.object';
 import { toQuoteReference, type PublicQuote } from 'src/utils/public-quote-page';
 
@@ -79,10 +80,69 @@ export const findQuoteByPublicToken = async (
   };
 };
 
-// Marks the quote accepted, then closes its opportunity as won at the quoted amount.
+export const hasOtherAcceptedQuote = async (quote: PublicQuoteRecord) => {
+  if (!quote.opportunityId) {
+    return false;
+  }
+
+  const { quotes } = await new CoreApiClient().query({
+    quotes: {
+      __args: {
+        filter: {
+          opportunityId: { eq: quote.opportunityId },
+          id: { neq: quote.id },
+          status: { eq: QuoteStatus.ACCEPTED },
+        },
+        first: 1,
+      },
+      edges: { node: { id: true } },
+    },
+  });
+
+  return (quotes?.edges.length ?? 0) > 0;
+};
+
+// The won stage is a workspace setting because pipelines can rename or remove "Customer".
+// If the stage is rejected, the amount is still recorded so the acceptance is never half done.
+const markOpportunityWon = async (client: CoreApiClient, quote: PublicQuoteRecord) => {
+  if (!quote.opportunityId) {
+    return;
+  }
+
+  const amount = { amountMicros: quote.totalMicros, currencyCode: quote.currencyCode };
+  const wonStage = process.env.WON_STAGE?.trim() || DEFAULT_WON_STAGE;
+
+  try {
+    await client.mutation({
+      updateOpportunity: {
+        __args: {
+          id: quote.opportunityId,
+          data: { // Any value is allowed here: the server rejects one the pipeline lacks, handled below.
+          stage: wonStage as 'CUSTOMER', amount },
+        },
+        id: true,
+      },
+    });
+  } catch (error) {
+    console.warn(
+      `Could not set opportunity stage to "${wonStage}"; recording the amount only.`,
+      error,
+    );
+
+    await client.mutation({
+      updateOpportunity: { __args: { id: quote.opportunityId, data: { amount } }, id: true },
+    });
+  }
+};
+
+// Updates the opportunity first, so a failure can never leave an accepted quote on a deal that
+// was not updated; retrying the acceptance completes it. Other open quotes on the deal are then
+// superseded so only one can win.
 export const acceptQuote = async (quote: PublicQuoteRecord) => {
   const client = new CoreApiClient();
   const acceptedAt = new Date().toISOString();
+
+  await markOpportunityWon(client, quote);
 
   await client.mutation({
     updateQuote: {
@@ -93,13 +153,14 @@ export const acceptQuote = async (quote: PublicQuoteRecord) => {
 
   if (quote.opportunityId) {
     await client.mutation({
-      updateOpportunity: {
+      updateQuotes: {
         __args: {
-          id: quote.opportunityId,
-          data: {
-            stage: 'CUSTOMER',
-            amount: { amountMicros: quote.totalMicros, currencyCode: quote.currencyCode },
+          filter: {
+            opportunityId: { eq: quote.opportunityId },
+            id: { neq: quote.id },
+            status: { in: [QuoteStatus.DRAFT, QuoteStatus.SENT] },
           },
+          data: { status: QuoteStatus.SUPERSEDED },
         },
         id: true,
       },

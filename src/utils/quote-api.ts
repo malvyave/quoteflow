@@ -1,7 +1,7 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
+import { RestApiClient, RestApiClientError } from 'twenty-client-sdk/rest';
 
-import { QuoteStatus } from 'src/objects/quote.object';
-import { generatePublicToken } from 'src/utils/public-quote-token';
+import { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
 
 export const DEFAULT_CURRENCY_CODE = 'USD';
@@ -223,32 +223,20 @@ export const saveQuoteDraft = async ({
   return quoteId;
 };
 
-// Locks the quote and gives it a fresh public link.
-export const sendQuote = async (quoteId: string) => {
-  await new CoreApiClient().mutation({
-    updateQuote: {
-      __args: {
-        id: quoteId,
-        data: {
-          status: QuoteStatus.SENT,
-          sentAt: new Date().toISOString(),
-          publicToken: generatePublicToken(),
-        },
-      },
-      id: true,
-    },
-  });
+// Status changes go through the app's server functions: those fields are writable by the app only.
+const runQuoteAction = async (action: 'send' | 'withdraw', quoteId: string) => {
+  try {
+    await new RestApiClient().post(`/s${QUOTE_ACTIONS_ROUTE_PREFIX}/${action}`, { quoteId });
+  } catch (error) {
+    const message =
+      error instanceof RestApiClientError
+        ? (error.body as { error?: string } | undefined)?.error
+        : undefined;
+
+    throw new Error(message ?? `Could not ${action} the quote.`);
+  }
 };
 
-// Moves a sent quote back to draft; clearing the token makes the old link stop working.
-export const withdrawQuote = async (quoteId: string) => {
-  await new CoreApiClient().mutation({
-    updateQuote: {
-      __args: {
-        id: quoteId,
-        data: { status: QuoteStatus.DRAFT, sentAt: null, publicToken: null },
-      },
-      id: true,
-    },
-  });
-};
+export const sendQuote = (quoteId: string) => runQuoteAction('send', quoteId);
+
+export const withdrawQuote = (quoteId: string) => runQuoteAction('withdraw', quoteId);
