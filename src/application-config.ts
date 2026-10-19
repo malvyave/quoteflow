@@ -39,16 +39,21 @@ export default defineApplication({
       isSecret: false,
     },
   },
-  // Set once per Twenty server by the app owner. Without a secret key billing is off and
-  // there is no quote limit (self-hosted servers and local development).
+  // Set once per Twenty server by the app owner. Without an API key billing is off and there
+  // is no quote limit (self-hosted servers and local development).
   serverVariables: {
-    STRIPE_SECRET_KEY: {
+    DODO_API_KEY: {
       description:
-        'Stripe secret key (sk_live_… or sk_test_…). Turns on the free plan limit and paid upgrades.',
+        'Dodo Payments API key. Turns on the free plan limit and paid upgrades. Needs write access to Customers, Subscriptions and Checkout.',
       isSecret: true,
     },
-    STRIPE_PRICE_ID: {
-      description: 'Stripe price ID (price_…) of the monthly QuoteFlow subscription.',
+    DODO_PRODUCT_ID: {
+      description: 'Dodo Payments product ID (pdt_…) of the monthly QuoteFlow subscription.',
+      isSecret: false,
+    },
+    DODO_MODE: {
+      description:
+        '"test" or "live". Must match the API key. Defaults to test, so a missing value never charges real cards.',
       isSecret: false,
     },
   },

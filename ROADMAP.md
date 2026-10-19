@@ -14,7 +14,7 @@ Scope from the design doc v3:
 - Expiration date ("valid until"), preview as buyer, message to client, terms.
 - Seller name and logo on the quote (workspace name, or the Seller name / Seller logo URL settings).
 - Sequential quote numbers (Q-0001), assigned when a quote is first sent.
-- Stripe free / paid gating (5 active quotes free).
+- Paid plan through Dodo Payments (merchant of record); free plan allows 5 active quotes.
 
 Decisions:
 

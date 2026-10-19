@@ -5,11 +5,11 @@ import { renderMessagePage } from 'src/utils/public-quote-page';
 import { htmlResponse } from 'src/utils/public-quote-responses';
 import { BILLING_DONE_ROUTE } from 'src/utils/public-quote-token';
 
-// Where Stripe sends the member back after checkout or the billing portal.
+// Where Dodo Payments sends the member back after checkout or the customer portal.
 export default defineLogicFunction({
   universalIdentifier: BILLING_DONE_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER,
   name: 'billing-done',
-  description: 'Page shown after Stripe checkout or the billing portal',
+  description: 'Page shown after checkout or the customer portal',
   timeoutSeconds: 10,
   handler: () =>
     htmlResponse(

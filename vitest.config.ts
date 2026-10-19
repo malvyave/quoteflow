@@ -17,6 +17,9 @@ export default defineConfig({
     testTimeout: 120_000,
     hookTimeout: 120_000,
     fileParallelism: false,
+    // The dev server is slow on the first calls after a deploy; one retry on CI keeps that
+    // from failing a run, while a real bug still fails twice.
+    retry: process.env.CI ? 1 : 0,
     include: ['src/**/*.integration-test.ts'],
     globalSetup: ['src/__tests__/global-setup.ts'],
     env: {

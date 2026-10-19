@@ -35,6 +35,10 @@ const loadQuoteAsMember = async (quoteId: unknown): Promise<QuoteForAction> => {
     throw new QuoteActionError('quoteId is required.', 400);
   }
 
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)) {
+    throw new QuoteActionError('quoteId must be a UUID.', 400);
+  }
+
   // A list query returns nothing for an unknown or inaccessible id, where a single-record
   // query would throw "Record not found".
   const { quotes, quoteLineItems } = await new CoreApiClient().query({

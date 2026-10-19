@@ -230,7 +230,7 @@ export const destroyDeals = async (opportunityIds: string[]) => {
 export const isoDateFromToday = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-// Server variables (Stripe keys) belong to the app registration, not the workspace install.
+// Server variables (billing keys) belong to the app registration, not the workspace install.
 export const setServerVariable = async (key: string, value: string | null) => {
   const lookup = await metadata<{
     findApplicationRegistrationByUniversalIdentifier: { id: string } | null;

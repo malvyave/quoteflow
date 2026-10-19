@@ -72,7 +72,12 @@ describe('sending a quote', () => {
     );
     const numbers = await Promise.all(quoteIds.map(async (id) => (await getQuote(id)).number));
 
-    expect(results.map((result) => result.status)).toEqual([200, 200, 200]);
+    // Bodies are included so a failure shows the server's error, not just the status.
+    expect(results.map((result) => `${result.status} ${result.body.slice(0, 300)}`)).toEqual([
+      '200 {"ok":true}',
+      '200 {"ok":true}',
+      '200 {"ok":true}',
+    ]);
     expect(new Set(numbers).size).toBe(3);
   });
 
@@ -98,6 +103,7 @@ describe('sending a quote', () => {
     await sendQuote(sentQuoteId);
 
     expect((await callQuoteAction('send', {})).status).toBe(400);
+    expect((await callQuoteAction('send', { quoteId: 'not-a-uuid' })).status).toBe(400);
     expect(
       (await callQuoteAction('send', { quoteId: '00000000-0000-4000-8000-000000000000' })).status,
     ).toBe(404);

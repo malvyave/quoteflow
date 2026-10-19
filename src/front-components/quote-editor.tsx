@@ -366,7 +366,7 @@ const QuoteEditor = () => {
       successMessage: 'Quote moved back to draft',
     });
 
-  // Opening a new tab needs a direct click on a link, so this fetches the Stripe URL first and
+  // Opening a new tab needs a direct click on a link, so this fetches the billing URL first and
   // then shows a button that links to it.
   const openBilling = async () => {
     setIsOpeningBilling(true);

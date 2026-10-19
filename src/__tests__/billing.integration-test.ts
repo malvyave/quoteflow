@@ -10,10 +10,10 @@ import {
 } from 'src/__tests__/quote-flow-helpers';
 import { FREE_ACTIVE_QUOTE_LIMIT, type PlanStatus } from 'src/utils/billing';
 
-// The free plan limit against a real server. These tests overwrite and then clear the Stripe
+// The free plan limit against a real server. These tests overwrite and then clear the billing
 // server variables, so they run on CI's throwaway server, and locally only with
 // TWENTY_TEST_BILLING=1, never by accident on a server where you entered your own keys.
-// The Stripe test-mode block also needs STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PRICE_ID.
+// The Dodo test-mode block also needs DODO_TEST_API_KEY and DODO_TEST_PRODUCT_ID.
 
 const changesServerVariables =
   process.env.TWENTY_TEST_REUSE_INSTALL !== '1' || process.env.TWENTY_TEST_BILLING === '1';
@@ -25,8 +25,9 @@ afterEach(async () => {
     return;
   }
 
-  await setServerVariable('STRIPE_SECRET_KEY', null);
-  await setServerVariable('STRIPE_PRICE_ID', null);
+  await setServerVariable('DODO_API_KEY', null);
+  await setServerVariable('DODO_PRODUCT_ID', null);
+  await setServerVariable('DODO_MODE', null);
 });
 
 afterAll(async () => {
@@ -61,7 +62,7 @@ const sendQuotesUntilActive = async (target: number) => {
   return { dealId, statuses, plan };
 };
 
-describe.skipIf(!changesServerVariables)('without Stripe keys', () => {
+describe.skipIf(!changesServerVariables)('without billing keys', () => {
   it('reports billing as off and never limits sending', async () => {
     const { statuses, plan } = await sendQuotesUntilActive(FREE_ACTIVE_QUOTE_LIMIT + 1);
 
@@ -75,29 +76,34 @@ describe.skipIf(!changesServerVariables)('without Stripe keys', () => {
   });
 });
 
-describe.skipIf(!changesServerVariables)('when Stripe cannot be reached', () => {
-  it('fails open: sending still works and the upgrade reports an error', async () => {
-    await setServerVariable('STRIPE_SECRET_KEY', 'sk_test_not_a_real_key');
-    await setServerVariable('STRIPE_PRICE_ID', 'price_not_real');
-
+// A workspace that never upgraded has no Dodo customer, so it is on the free plan without any
+// call to Dodo. (Failing open when Dodo is down is covered by billing-server.test.ts.)
+describe.skipIf(!changesServerVariables)('with billing on and no subscription yet', () => {
+  it('enforces the free limit, and reports an error when Dodo rejects the upgrade', async () => {
     const { dealId } = await sendQuotesUntilActive(FREE_ACTIVE_QUOTE_LIMIT);
-    const extraQuote = await createQuote(dealId);
+
+    await setServerVariable('DODO_API_KEY', 'not-a-real-dodo-key');
+    await setServerVariable('DODO_PRODUCT_ID', 'pdt_not_real');
+
     const plan = await getPlan();
+    const blocked = await callQuoteAction('send', { quoteId: await createQuote(dealId) });
 
     expect(plan.billingEnabled).toBe(true);
-    expect(plan.isPaid).toBe(true);
-    expect((await callQuoteAction('send', { quoteId: extraQuote })).status).toBe(200);
+    expect(plan.isPaid).toBe(false);
+    expect(blocked.status).toBe(402);
+    expect(blocked.body).toContain(`${FREE_ACTIVE_QUOTE_LIMIT} active quotes`);
     expect((await callAppRoute('POST', '/quote-actions/upgrade')).status).toBe(502);
   });
 });
 
-const stripeTestKey = process.env.STRIPE_TEST_SECRET_KEY;
-const stripeTestPrice = process.env.STRIPE_TEST_PRICE_ID;
+const dodoTestKey = process.env.DODO_TEST_API_KEY;
+const dodoTestProduct = process.env.DODO_TEST_PRODUCT_ID;
 
-describe.skipIf(!changesServerVariables || !stripeTestKey || !stripeTestPrice)('with Stripe in test mode', () => {
+describe.skipIf(!changesServerVariables || !dodoTestKey || !dodoTestProduct)('with Dodo Payments in test mode', () => {
   it('blocks the quote over the free limit and offers a checkout', async () => {
-    await setServerVariable('STRIPE_SECRET_KEY', stripeTestKey as string);
-    await setServerVariable('STRIPE_PRICE_ID', stripeTestPrice as string);
+    await setServerVariable('DODO_API_KEY', dodoTestKey as string);
+    await setServerVariable('DODO_PRODUCT_ID', dodoTestProduct as string);
+    await setServerVariable('DODO_MODE', 'test');
 
     const { dealId } = await sendQuotesUntilActive(FREE_ACTIVE_QUOTE_LIMIT);
     const plan = await getPlan();
@@ -115,7 +121,7 @@ describe.skipIf(!changesServerVariables || !stripeTestKey || !stripeTestPrice)('
     expect(upgrade.status).toBe(200);
     expect(JSON.parse(upgrade.body)).toMatchObject({
       kind: 'checkout',
-      url: expect.stringContaining('https://checkout.stripe.com/'),
+      url: expect.stringMatching(/^https:\/\/[^/]*dodopayments\.com\//),
     });
   });
 });

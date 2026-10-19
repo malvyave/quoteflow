@@ -1,8 +1,8 @@
 import { QuoteStatus } from 'src/objects/quote.object';
 import { isQuoteExpired } from 'src/utils/quote-details';
 
-// Pure billing rules and a minimal Stripe client. Nothing here reads the environment, so it can
-// be unit-tested with a fake fetch.
+// Pure billing rules and a minimal Dodo Payments client. Nothing here reads the environment, so
+// it can be unit-tested with a fake fetch.
 
 export const FREE_ACTIVE_QUOTE_LIMIT = 5;
 
@@ -26,43 +26,29 @@ export const canSendAnotherQuote = ({
   freeLimit,
 }: PlanStatus) => !billingEnabled || isPaid || activeQuoteCount < freeLimit;
 
-// Stripe expects application/x-www-form-urlencoded bodies with bracketed keys for nesting.
-export const toStripeFormBody = (params: Record<string, unknown>) => {
-  const body = new URLSearchParams();
+// Subscriptions that still grant the paid plan. past_due keeps access while Dodo retries a
+// failed renewal; on_hold, cancelled, expired and failed do not.
+const PAYING_SUBSCRIPTION_STATUSES = new Set(['active', 'past_due']);
 
-  const append = (key: string, value: unknown) => {
-    if (value === undefined || value === null) {
-      return;
-    }
+export const isPayingSubscriptionStatus = (status: string) => PAYING_SUBSCRIPTION_STATUSES.has(status);
 
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => append(`${key}[${index}]`, item));
-    } else if (typeof value === 'object') {
-      Object.entries(value as Record<string, unknown>).forEach(([childKey, childValue]) =>
-        append(`${key}[${childKey}]`, childValue),
-      );
-    } else {
-      body.append(key, String(value));
-    }
-  };
+export type DodoMode = 'test' | 'live';
 
-  Object.entries(params).forEach(([key, value]) => append(key, value));
-
-  return body.toString();
+export const DODO_API_URLS: Record<DodoMode, string> = {
+  test: 'https://test.dodopayments.com',
+  live: 'https://live.dodopayments.com',
 };
 
-// Workspace ids are UUIDs; anything else must never reach a Stripe search query.
-const assertWorkspaceId = (workspaceId: string) => {
-  if (!/^[0-9a-f-]{36}$/i.test(workspaceId)) {
-    throw new Error('Invalid workspace id.');
-  }
-};
+export const toDodoMode = (value: string | undefined): DodoMode =>
+  value?.trim().toLowerCase() === 'live' ? 'live' : 'test';
 
-const STRIPE_API_URL = 'https://api.stripe.com/v1';
+const PAGE_SIZE = 100;
+// Bounds the fallback scan for a workspace's customer (100 per page).
+const MAX_CUSTOMER_PAGES = 50;
 
 type Fetch = typeof fetch;
 
-export class StripeError extends Error {
+export class DodoError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -71,85 +57,139 @@ export class StripeError extends Error {
   }
 }
 
-export const createStripeClient = ({
-  secretKey,
+type DodoCustomer = { customer_id: string; metadata?: Record<string, unknown> | null };
+type DodoSubscription = { subscription_id: string; status: string; product_id?: string };
+
+export const createDodoClient = ({
+  apiKey,
+  mode,
   fetchImpl = fetch,
 }: {
-  secretKey: string;
+  apiKey: string;
+  mode: DodoMode;
   fetchImpl?: Fetch;
 }) => {
-  const request = async <T>(method: 'GET' | 'POST', path: string, params?: Record<string, unknown>) => {
-    const query = method === 'GET' && params ? `?${new URLSearchParams(params as Record<string, string>)}` : '';
-    const response = await fetchImpl(`${STRIPE_API_URL}${path}${query}`, {
+  const request = async <T>(
+    method: 'GET' | 'POST',
+    path: string,
+    { query, body }: { query?: Record<string, string>; body?: unknown } = {},
+  ) => {
+    const search = query ? `?${new URLSearchParams(query)}` : '';
+    const response = await fetchImpl(`${DODO_API_URLS[mode]}${path}${search}`, {
       method,
       headers: {
-        Authorization: `Bearer ${secretKey}`,
-        ...(method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+        Authorization: `Bearer ${apiKey}`,
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
-      body: method === 'POST' && params ? toStripeFormBody(params) : undefined,
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const payload = (await response.json()) as T & { error?: { message?: string } };
+    const text = await response.text();
+    const payload = (text ? JSON.parse(text) : {}) as T & { message?: string; error?: string };
 
     if (!response.ok) {
-      throw new StripeError(payload.error?.message ?? `Stripe returned ${response.status}`, response.status);
+      throw new DodoError(
+        payload.message ?? payload.error ?? `Dodo Payments returned ${response.status}`,
+        response.status,
+      );
     }
 
     return payload;
   };
 
   return {
-    // Subscriptions carry the workspace id in their metadata, set at checkout.
-    findActiveSubscription: async (workspaceId: string) => {
-      assertWorkspaceId(workspaceId);
-
-      const result = await request<{ data: { id: string; customer: string }[] }>(
-        'GET',
-        '/subscriptions/search',
-        {
-          query: `metadata['workspace_id']:'${workspaceId}' AND (status:'active' OR status:'trialing')`,
-          limit: '1',
-        },
-      );
-      const subscription = result.data[0];
-
-      return subscription ? { subscriptionId: subscription.id, customerId: subscription.customer } : null;
-    },
-
-    createCheckoutSession: async ({
-      priceId,
+    // The workspace id goes in the customer's metadata, so a lost link can be recovered.
+    createCustomer: async ({
+      name,
+      email,
       workspaceId,
-      successUrl,
-      cancelUrl,
     }: {
-      priceId: string;
+      name: string;
+      email: string;
       workspaceId: string;
-      successUrl: string;
-      cancelUrl: string;
     }) => {
-      assertWorkspaceId(workspaceId);
-
-      const session = await request<{ url: string }>('POST', '/checkout/sessions', {
-        mode: 'subscription',
-        line_items: [{ price: priceId, quantity: 1 }],
-        client_reference_id: workspaceId,
-        metadata: { workspace_id: workspaceId },
-        subscription_data: { metadata: { workspace_id: workspaceId } },
-        success_url: successUrl,
-        cancel_url: cancelUrl,
+      const customer = await request<DodoCustomer>('POST', '/customers', {
+        body: { name, email, metadata: { workspace_id: workspaceId } },
       });
 
-      return session.url;
+      return customer.customer_id;
+    },
+
+    // The customer list cannot filter by metadata, so this pages through it. Only used when the
+    // stored link is missing.
+    findCustomerIdByWorkspace: async (workspaceId: string) => {
+      for (let page = 0; page < MAX_CUSTOMER_PAGES; page++) {
+        const { items } = await request<{ items: DodoCustomer[] }>('GET', '/customers', {
+          query: { page_size: String(PAGE_SIZE), page_number: String(page) },
+        });
+        const match = items.find((customer) => customer.metadata?.workspace_id === workspaceId);
+
+        if (match) {
+          return match.customer_id;
+        }
+
+        if (items.length < PAGE_SIZE) {
+          return null;
+        }
+      }
+
+      return null;
+    },
+
+    hasPayingSubscription: async ({
+      customerId,
+      productId,
+    }: {
+      customerId: string;
+      productId?: string;
+    }) => {
+      const { items } = await request<{ items: DodoSubscription[] }>('GET', '/subscriptions', {
+        query: { customer_id: customerId, page_size: String(PAGE_SIZE) },
+      });
+
+      return items.some(
+        (subscription) =>
+          isPayingSubscriptionStatus(subscription.status) &&
+          (!productId || !subscription.product_id || subscription.product_id === productId),
+      );
+    },
+
+    createCheckout: async ({
+      productId,
+      customerId,
+      workspaceId,
+      returnUrl,
+    }: {
+      productId: string;
+      customerId: string;
+      workspaceId: string;
+      returnUrl: string;
+    }) => {
+      const session = await request<{ checkout_url?: string | null }>('POST', '/checkouts', {
+        body: {
+          product_cart: [{ product_id: productId, quantity: 1 }],
+          customer: { customer_id: customerId },
+          metadata: { workspace_id: workspaceId },
+          return_url: returnUrl,
+        },
+      });
+
+      if (!session.checkout_url) {
+        throw new DodoError('Dodo Payments did not return a checkout link.', 502);
+      }
+
+      return session.checkout_url;
     },
 
     createPortalSession: async ({ customerId, returnUrl }: { customerId: string; returnUrl: string }) => {
-      const session = await request<{ url: string }>('POST', '/billing_portal/sessions', {
-        customer: customerId,
-        return_url: returnUrl,
-      });
+      const session = await request<{ link: string }>(
+        'POST',
+        `/customers/${encodeURIComponent(customerId)}/customer-portal/session`,
+        { query: { return_url: returnUrl } },
+      );
 
-      return session.url;
+      return session.link;
     },
   };
 };
 
-export type StripeClient = ReturnType<typeof createStripeClient>;
+export type DodoClient = ReturnType<typeof createDodoClient>;

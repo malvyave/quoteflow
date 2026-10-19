@@ -5,44 +5,99 @@ import { kv } from 'twenty-sdk/logic-function';
 import { QuoteStatus } from 'src/objects/quote.object';
 import {
   countsAsActiveQuote,
-  createStripeClient,
+  createDodoClient,
   FREE_ACTIVE_QUOTE_LIMIT,
+  toDodoMode,
   type PlanStatus,
 } from 'src/utils/billing';
 
-// Billing as seen from a logic function. Stripe keys are server variables set by the app owner;
-// without them (self-hosted Twenty, local development) billing is off and there is no limit.
+// Billing as seen from a logic function. Dodo Payments keys are server variables set by the app
+// owner; without an API key (self-hosted Twenty, local development) billing is off and there is
+// no limit.
+//
+// Each workspace gets one Dodo customer, created at its first upgrade and tagged with the
+// workspace id. The link is kept in the app key-value store; paid status is read from that
+// customer's subscriptions.
 
+const CUSTOMER_KEY = 'billing:customer';
 const ENTITLEMENT_CACHE_KEY = 'billing:entitlement';
 const PAID_CACHE_MS = 60 * 60 * 1000;
 // Short, so a workspace that just paid is unblocked within a minute.
 const UNPAID_CACHE_MS = 60 * 1000;
 const ACTIVE_QUOTE_COUNT_CAP = 200;
 
+type StoredCustomer = { customerId: string };
 type CachedEntitlement = { isPaid: boolean; customerId: string | null; checkedAt: number };
 
 export const getBillingConfig = () => {
-  const secretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
-  const priceId = process.env.STRIPE_PRICE_ID?.trim() ?? '';
+  const apiKey = process.env.DODO_API_KEY?.trim() ?? '';
 
-  return { enabled: secretKey !== '', secretKey, priceId };
+  return {
+    enabled: apiKey !== '',
+    apiKey,
+    productId: process.env.DODO_PRODUCT_ID?.trim() ?? '',
+    mode: toDodoMode(process.env.DODO_MODE),
+  };
 };
 
-export const getStripe = () => createStripeClient({ secretKey: getBillingConfig().secretKey });
+export const getDodo = () => {
+  const { apiKey, mode } = getBillingConfig();
 
-export const getWorkspaceId = async () => {
+  return createDodoClient({ apiKey, mode });
+};
+
+export const getWorkspace = async () => {
   const { currentWorkspace } = await new MetadataApiClient().query({
-    currentWorkspace: { id: true },
+    currentWorkspace: { id: true, displayName: true },
   });
 
   if (!currentWorkspace?.id) {
     throw new Error('Could not determine the workspace.');
   }
 
-  return currentWorkspace.id;
+  return { id: currentWorkspace.id, name: currentWorkspace.displayName?.trim() || 'Twenty workspace' };
 };
 
-// Fails open: if Stripe cannot be reached, the workspace is treated as paid so an outage never
+const getMemberEmail = async () => {
+  const { currentUser } = await new MetadataApiClient().query({ currentUser: { email: true } });
+
+  if (!currentUser?.email) {
+    throw new Error('Could not determine your email address.');
+  }
+
+  return currentUser.email;
+};
+
+const getStoredCustomerId = async () => (await kv.get<StoredCustomer>(CUSTOMER_KEY))?.customerId ?? null;
+
+const storeCustomerId = (customerId: string) => kv.set<StoredCustomer>(CUSTOMER_KEY, { customerId });
+
+// Used on upgrade, before ever creating a customer: if the stored link was lost (for example
+// after a reinstall), find the existing customer by its workspace tag so nobody pays twice.
+export const getOrCreateCustomerId = async () => {
+  const stored = await getStoredCustomerId();
+
+  if (stored) {
+    return stored;
+  }
+
+  const dodo = getDodo();
+  const workspace = await getWorkspace();
+  const recovered = await dodo.findCustomerIdByWorkspace(workspace.id);
+  const customerId =
+    recovered ??
+    (await dodo.createCustomer({
+      name: workspace.name,
+      email: await getMemberEmail(),
+      workspaceId: workspace.id,
+    }));
+
+  await storeCustomerId(customerId);
+
+  return customerId;
+};
+
+// Fails open: if Dodo cannot be reached, the workspace is treated as paid so an outage never
 // blocks customers. The miss is logged and the next run asks again.
 export const getEntitlement = async ({ refresh = false } = {}): Promise<CachedEntitlement> => {
   const cached = refresh ? null : await kv.get<CachedEntitlement>(ENTITLEMENT_CACHE_KEY);
@@ -56,12 +111,14 @@ export const getEntitlement = async ({ refresh = false } = {}): Promise<CachedEn
   }
 
   try {
-    const subscription = await getStripe().findActiveSubscription(await getWorkspaceId());
-    const entitlement = {
-      isPaid: subscription !== null,
-      customerId: subscription?.customerId ?? null,
-      checkedAt: Date.now(),
-    };
+    const customerId = await getStoredCustomerId();
+    const isPaid = customerId
+      ? await getDodo().hasPayingSubscription({
+          customerId,
+          productId: getBillingConfig().productId || undefined,
+        })
+      : false;
+    const entitlement = { isPaid, customerId, checkedAt: Date.now() };
 
     await kv.set(ENTITLEMENT_CACHE_KEY, entitlement);
 
