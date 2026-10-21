@@ -58,14 +58,19 @@ export const gqlData = async <T = Record<string, unknown>>(
   return result.data;
 };
 
-export const createDeal = async (name: string, stage = 'PROPOSAL') => {
+// Test deals are prefixed so leftovers are easy to spot; screenshots pass `exactName`.
+export const createDeal = async (
+  name: string,
+  stage = 'PROPOSAL',
+  { exactName = false, amount = 1 }: { exactName?: boolean; amount?: number } = {},
+) => {
   const data = await gqlData<{ createOpportunity: { id: string } }>(
     `mutation($d: OpportunityCreateInput!) { createOpportunity(data: $d) { id } }`,
     {
       d: {
-        name: `[QuoteFlow test] ${name}`,
+        name: exactName ? name : `[QuoteFlow test] ${name}`,
         stage,
-        amount: { amountMicros: majorToMicros(1), currencyCode: 'USD' },
+        amount: { amountMicros: majorToMicros(amount), currencyCode: 'USD' },
       },
     },
   );

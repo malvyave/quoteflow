@@ -2,6 +2,15 @@
 
 Itemized quotes on your Twenty deals. Add line items, send your client a link, and when they accept, the deal is marked won with the right amount.
 
+## Free during the beta
+
+QuoteFlow is free while it is in beta. After the beta it will be:
+
+- **Free**: up to 5 active quotes at a time (sent and not yet accepted or expired).
+- **Paid**: unlimited quotes for $19 per workspace per month.
+
+Workspaces that use QuoteFlow during the beta get 50% off the paid plan for life. Feedback is very welcome; see [Support](#support).
+
 ## How it works
 
 1. Open a deal (opportunity) and go to the **Quote** tab.
@@ -55,6 +64,10 @@ Client links contain a long random secret, are hidden from search engines, and s
 - No e-signature or online payment yet.
 - The Quote tab shows the most recent quote on a deal. All of a deal's quotes are listed in its **Quotes** field.
 - Self-hosted Twenty must be reachable from the internet for clients to open quote links.
+
+## Support
+
+Found a bug or have an idea? Open an issue on [GitHub](REPO_URL/issues).
 
 ## Development
 

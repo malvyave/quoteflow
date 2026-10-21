@@ -14,6 +14,10 @@ export default defineApplication({
   universalIdentifier: APPLICATION_UNIVERSAL_IDENTIFIER,
   displayName: APP_DISPLAY_NAME,
   description: APP_DESCRIPTION,
+  // Marketplace listing. The About tab uses README.md.
+  category: 'Sales',
+  logo: 'public/logo.png',
+  galleryImages: ['public/screenshot-editor.png', 'public/screenshot-client.png'],
   applicationVariables: {
     WON_STAGE: {
       universalIdentifier: WON_STAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
