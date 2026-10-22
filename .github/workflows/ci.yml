@@ -48,6 +48,9 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      - name: Typecheck
+        run: yarn typecheck
+
       - name: Unit tests
         run: yarn test:unit
 
@@ -57,10 +60,6 @@ jobs:
         env:
           TWENTY_API_URL: ${{ steps.twenty.outputs.server-url }}
           TWENTY_API_KEY: ${{ steps.twenty.outputs.api-key }}
-
-      # Installing the app generates the typed client for its objects, which typecheck needs.
-      - name: Typecheck
-        run: yarn typecheck
 
       - name: Install Playwright Chromium
         run: yarn playwright install --with-deps chromium

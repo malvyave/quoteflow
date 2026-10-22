@@ -9,6 +9,14 @@ import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quot
 export const DEFAULT_CURRENCY_CODE = 'USD';
 
 // Editable values are kept as strings so inputs can be empty or mid-typing ("12.").
+// Typed by hand so this compiles before the app's client has been generated.
+type LineItemNode = {
+  id: string;
+  name?: string | null;
+  quantity?: number | null;
+  unitPrice?: { amountMicros?: number | string | null } | null;
+};
+
 export type LineItemDraft = {
   key: string;
   id: string | null;
@@ -157,7 +165,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
     expiresAt: quote.expiresAt?.slice(0, 10) ?? '',
     message: quote.message ?? '',
     terms: quote.terms ?? '',
-    lineItems: (quoteLineItems?.edges ?? []).map(({ node }) => ({
+    lineItems: (quoteLineItems?.edges ?? []).map(({ node }: { node: LineItemNode }) => ({
       key: node.id,
       id: node.id,
       name: node.name ?? '',
@@ -193,9 +201,9 @@ export const saveQuoteDraft = async ({
     total: { amountMicros: totals.totalMicros, currencyCode },
   };
 
-  let quoteId = draft.id;
+  let quoteId: string;
 
-  if (quoteId === null) {
+  if (draft.id === null) {
     const { createQuote } = await client.mutation({
       createQuote: { __args: { data: { ...quoteData, opportunityId } }, id: true },
     });
@@ -206,6 +214,7 @@ export const saveQuoteDraft = async ({
 
     quoteId = createQuote.id;
   } else {
+    quoteId = draft.id;
     await client.mutation({
       updateQuote: { __args: { id: quoteId, data: quoteData }, id: true },
     });

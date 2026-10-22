@@ -130,6 +130,9 @@ export const getEntitlement = async ({ refresh = false } = {}): Promise<CachedEn
   }
 };
 
+// Typed by hand so this compiles before the app's client has been generated.
+type ActiveQuoteNode = { status?: string | null; expiresAt?: string | null };
+
 // Runs as the app so every member's quotes count toward the workspace limit.
 export const countActiveQuotes = async () => {
   const { quotes } = await new CoreApiClient({ runAs: 'application' }).query({
@@ -140,7 +143,7 @@ export const countActiveQuotes = async () => {
   });
   const now = new Date();
 
-  return (quotes?.edges ?? []).filter(({ node }) =>
+  return (quotes?.edges ?? []).filter(({ node }: { node: ActiveQuoteNode }) =>
     countsAsActiveQuote({ status: node.status ?? null, expiresAt: node.expiresAt ?? null }, now),
   ).length;
 };

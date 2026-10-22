@@ -6,6 +6,13 @@ import { type PublicQuote } from 'src/utils/public-quote-page';
 import { toQuoteReference } from 'src/utils/quote-details';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
 
+// Typed by hand so this compiles before the app's client has been generated.
+type LineItemNode = {
+  name?: string | null;
+  quantity?: number | null;
+  unitPrice?: { amountMicros?: number | string | null } | null;
+};
+
 export type PublicQuoteRecord = PublicQuote & {
   id: string;
   opportunityId: string | null;
@@ -86,7 +93,7 @@ export const findQuoteByPublicToken = async (
     terms: quote.terms ?? null,
     companyName: company?.name ?? null,
     seller: await sellerPromise,
-    lineItems: (quoteLineItems?.edges ?? []).map(({ node }) => ({
+    lineItems: (quoteLineItems?.edges ?? []).map(({ node }: { node: LineItemNode }) => ({
       name: node.name ?? '',
       quantity: node.quantity ?? 0,
       unitPriceMicros: Number(node.unitPrice?.amountMicros ?? 0),
