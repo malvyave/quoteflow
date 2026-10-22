@@ -1,11 +1,9 @@
 name: CD
 
+# Manual only until there is a hosted Twenty to deploy to: set TWENTY_DEPLOY_URL to it and add the
+# TWENTY_DEPLOY_API_KEY secret first.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [labeled]
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -19,15 +17,12 @@ concurrency:
 
 jobs:
   deploy-and-install:
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && github.event.label.name == 'deploy')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Deploy
         uses: twentyhq/twenty/.github/actions/deploy-twenty-app@main
