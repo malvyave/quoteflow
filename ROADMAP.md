@@ -1,6 +1,6 @@
 # Roadmap
 
-Product name: QuoteFlow for Twenty (design doc v3).
+Product name: QuoteFlow for Twenty (design doc v4).
 
 ## v1 (MVP)
 
@@ -11,7 +11,8 @@ Scope from the design doc v3:
 - Send Quote gives a public link for the user to copy. The app does not send email.
 - Accepting a quote marks the opportunity Won (configurable stage) and sets its amount to the quote total.
 - Printable / PDF view.
-- Expiration date ("valid until"), preview as buyer, message to client, terms.
+- Expiration date ("valid until"), message to client, terms.
+- Two-step flow (Edit → Review & share) with a live preview of the client page beside the editor (design doc v4).
 - Seller name and logo on the quote (workspace name, or the Seller name / Seller logo URL settings).
 - Sequential quote numbers (Q-0001), assigned when a quote is first sent.
 - Paid plan through Dodo Payments (merchant of record); free plan allows 5 active quotes.
@@ -30,3 +31,5 @@ Decisions:
 5. View tracking / notifications.
 6. Product catalog.
 7. Email from the app, e-signature, payments.
+
+Not planned for v1: a longer multi-step wizard (two steps is the maximum).

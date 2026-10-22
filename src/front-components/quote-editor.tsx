@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { RestApiClient } from 'twenty-client-sdk/rest';
 import {
@@ -13,7 +21,8 @@ import {
   IconCopy,
   IconDownload,
   IconExternalLink,
-  IconEye,
+  IconArrowLeft,
+  IconArrowRight,
   IconPlus,
   IconSend,
   IconTrash,
@@ -28,7 +37,6 @@ import {
   loadQuoteDraft,
   newLineItemDraft,
   loadPlanStatus,
-  parseNumber,
   saveQuoteDraft,
   sendQuote,
   startUpgrade,
@@ -37,11 +45,12 @@ import {
   type PlanStatus,
   type QuoteDraft,
 } from 'src/utils/quote-api';
-import { renderQuotePage, type QuoteSeller } from 'src/utils/public-quote-page';
+import { type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
-import { addDays, isQuoteExpired, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
+import { addDays, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
+import { renderDraftPreview } from 'src/utils/quote-preview';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
-import { formatMoney, majorToMicros } from 'src/utils/quote-totals';
+import { formatMoney } from 'src/utils/quote-totals';
 
 const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'AED', 'CHF', 'JPY'];
 
@@ -76,6 +85,34 @@ const toDecimalInput = (value: string) => {
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong.';
 
+type WizardStep = 'edit' | 'review';
+
+// matchMedia answers for this component's own box, not the browser window, so this follows the
+// width Twenty gives the Quote tab.
+const WIDE_LAYOUT_QUERY = '(min-width: 900px)';
+
+const useIsWideWidget = () => {
+  const [isWide, setIsWide] = useState(
+    () => typeof matchMedia === 'function' && matchMedia(WIDE_LAYOUT_QUERY).matches,
+  );
+
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') {
+      return;
+    }
+
+    const query = matchMedia(WIDE_LAYOUT_QUERY);
+    const update = () => setIsWide(query.matches);
+
+    update();
+    query.addEventListener('change', update);
+
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return isWide;
+};
+
 const QuoteEditor = () => {
   const theme = useTheme();
   const [opportunityId] = useSelectedRecordIds();
@@ -86,7 +123,9 @@ const QuoteEditor = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [step, setStep] = useState<WizardStep>('edit');
+  const [isNarrowPreviewOpen, setIsNarrowPreviewOpen] = useState(false);
+  const isWide = useIsWideWidget();
   const [seller, setSeller] = useState<QuoteSeller>({ name: null, logoUrl: null });
   const [plan, setPlan] = useState<PlanStatus | null>(null);
   const [billingUrl, setBillingUrl] = useState<{ kind: 'checkout' | 'portal'; url: string } | null>(
@@ -121,6 +160,7 @@ const QuoteEditor = () => {
       setDraft(loaded);
       setSavedSnapshot(JSON.stringify(loaded));
       setRemovedLineItemIds([]);
+      setStep((current) => (loaded.status === QuoteStatus.DRAFT ? current : 'review'));
       refreshPlan();
     } catch (error) {
       setLoadError(getErrorMessage(error));
@@ -132,6 +172,11 @@ const QuoteEditor = () => {
   }, [load]);
 
   const totals = useMemo(() => (draft ? computeDraftTotals(draft) : null), [draft]);
+  const deferredDraft = useDeferredValue(draft);
+  const previewHtml = useMemo(
+    () => (deferredDraft ? renderDraftPreview(deferredDraft, seller) : ''),
+    [deferredDraft, seller],
+  );
 
   const styles = useMemo(() => {
     // minWidth 0 lets inputs shrink below the browser's default input width in narrow panels.
@@ -258,7 +303,7 @@ const QuoteEditor = () => {
     );
   };
 
-  const save = async () => {
+  const save = async (): Promise<boolean> => {
     const unnamed = draft.lineItems.some(
       (lineItem) => lineItem.name.trim() === '' && lineItem.unitPrice.trim() !== '',
     );
@@ -266,7 +311,7 @@ const QuoteEditor = () => {
     if (unnamed) {
       enqueueSnackbar({ message: 'Give every priced line item a description.', variant: 'error' });
 
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -284,11 +329,15 @@ const QuoteEditor = () => {
       });
       await load();
       enqueueSnackbar({ message: 'Quote saved', variant: 'success' });
+
+      return true;
     } catch (error) {
       enqueueSnackbar({
         message: `Could not save the quote: ${getErrorMessage(error)}`,
         variant: 'error',
       });
+
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -308,6 +357,7 @@ const QuoteEditor = () => {
     confirmButtonAccent,
     action,
     successMessage,
+    nextStep,
   }: {
     title: string;
     subtitle: string;
@@ -315,6 +365,7 @@ const QuoteEditor = () => {
     confirmButtonAccent: 'blue' | 'danger';
     action: (quoteId: string) => Promise<void>;
     successMessage: string;
+    nextStep?: WizardStep;
   }) => {
     if (draft.id === null) {
       return;
@@ -335,6 +386,11 @@ const QuoteEditor = () => {
 
     try {
       await action(draft.id);
+
+      if (nextStep) {
+        setStep(nextStep);
+      }
+
       await load();
       enqueueSnackbar({ message: successMessage, variant: 'success' });
     } catch (error) {
@@ -352,7 +408,7 @@ const QuoteEditor = () => {
       confirmButtonText: 'Send quote',
       confirmButtonAccent: 'blue',
       action: sendQuote,
-      successMessage: 'Quote sent. Copy the link below to share it.',
+      successMessage: 'Quote sent. Copy the link to share it with your client.',
     });
 
   const withdraw = () =>
@@ -364,6 +420,7 @@ const QuoteEditor = () => {
       confirmButtonAccent: 'danger',
       action: withdrawQuote,
       successMessage: 'Quote moved back to draft',
+      nextStep: 'edit',
     });
 
   // Opening a new tab needs a direct click on a link, so this fetches the billing URL first and
@@ -387,76 +444,169 @@ const QuoteEditor = () => {
     }
   };
 
-  if (isPreviewing) {
-    // The same renderer as the public page, fed with the unsaved draft.
-    const previewHtml = renderQuotePage({
-      quote: {
-        reference: draft.number !== null ? toQuoteReference('', draft.number) : 'Draft',
-        name: draft.name.trim() || 'Quote',
-        status: draft.status,
-        currencyCode: draft.currencyCode,
-        discountPercent: parseNumber(draft.discountPercent),
-        taxPercent: parseNumber(draft.taxPercent),
-        sentAt: draft.sentAt,
-        acceptedAt: draft.acceptedAt,
-        expiresAt: draft.expiresAt || null,
-        message: draft.message,
-        terms: draft.terms,
-        companyName: draft.companyName,
-        seller,
-        lineItems: draft.lineItems
-          .filter((lineItem) => lineItem.name.trim() !== '')
-          .map((lineItem) => ({
-            name: lineItem.name,
-            quantity: parseNumber(lineItem.quantity),
-            unitPriceMicros: majorToMicros(parseNumber(lineItem.unitPrice)),
-          })),
-      },
-      acceptActionUrl: '',
-      isPreview: true,
-      isExpired: isQuoteExpired(draft.expiresAt, new Date()),
-    });
+  // "Next" saves first, so step 2 always reviews exactly what the client will get.
+  const goToReview = async () => {
+    if (isEditable && !hasNamedLineItem) {
+      enqueueSnackbar({ message: 'Add at least one line item first.', variant: 'error' });
+
+      return;
+    }
+
+    if (isEditable && (isDirty || draft.id === null) && !(await save())) {
+      return;
+    }
+
+    setStep('review');
+  };
+
+  const previewFrame = (height: string) => (
+    <iframe
+      title="Quote preview"
+      srcDoc={previewHtml}
+      sandbox=""
+      style={{
+        width: '100%',
+        height,
+        border: `1px solid ${theme.border.color.medium}`,
+        borderRadius: theme.border.radius.md,
+        background: theme.background.primary,
+      }}
+    />
+  );
+
+  const twoColumns = (left: ReactNode, right: ReactNode, leftWidth = 'minmax(0, 1fr)') =>
+    isWide ? (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `${leftWidth} minmax(0, 1fr)`,
+          gap: theme.spacing[4],
+          alignItems: 'start',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[4] }}>{left}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[2] }}>{right}</div>
+      </div>
+    ) : (
+      <>
+        {left}
+        {right}
+      </>
+    );
+
+  const header = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
+      <input
+        aria-label="Quote name"
+        value={draft.name}
+        disabled={!isEditable || step === 'review'}
+        onChange={(event) => updateDraft({ name: event.target.value })}
+        style={{ ...styles.input, fontWeight: theme.font.weight.medium, flex: 1 }}
+      />
+      {draft.number !== null && <span style={styles.muted}>{toQuoteReference('', draft.number)}</span>}
+      <Tag color={statusTag.color}>{statusTag.label}</Tag>
+    </div>
+  );
+
+  const stepButton = (target: WizardStep, number: number, label: string, onClick: () => void) => {
+    const isActive = step === target;
 
     return (
-      <div style={styles.root}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={styles.muted}>Preview as buyer{isDirty ? ' (includes unsaved changes)' : ''}</span>
-          <Button variant="outline" color="neutral" size="sm" onClick={() => setIsPreviewing(false)}>
-            Back to editing
-          </Button>
-        </div>
-        <iframe
-          title="Quote preview"
-          srcDoc={previewHtml}
-          sandbox=""
+      <button
+        type="button"
+        aria-current={isActive ? 'step' : undefined}
+        onClick={onClick}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing[2],
+          padding: `${theme.spacing[1]} ${theme.spacing[3]}`,
+          border: `1px solid ${isActive ? theme.border.color.strong : theme.border.color.light}`,
+          borderRadius: theme.border.radius.pill,
+          background: isActive ? theme.background.tertiary : 'transparent',
+          color: isActive ? theme.font.color.primary : theme.font.color.tertiary,
+          fontFamily: theme.font.family,
+          fontSize: theme.font.size.sm,
+          fontWeight: isActive ? theme.font.weight.medium : theme.font.weight.regular,
+          cursor: 'pointer',
+        }}
+      >
+        <span
           style={{
-            width: '100%',
-            height: '720px',
-            border: `1px solid ${theme.border.color.medium}`,
-            borderRadius: theme.border.radius.md,
-            background: theme.background.primary,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            background: isActive ? theme.font.color.primary : theme.background.tertiary,
+            color: isActive ? theme.background.primary : theme.font.color.tertiary,
+            fontSize: theme.font.size.xs,
           }}
-        />
-      </div>
+        >
+          {number}
+        </span>
+        {label}
+      </button>
     );
-  }
+  };
 
-  return (
-    <div style={styles.root}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
-        <input
-          aria-label="Quote name"
-          value={draft.name}
-          disabled={!isEditable}
-          onChange={(event) => updateDraft({ name: event.target.value })}
-          style={{ ...styles.input, fontWeight: theme.font.weight.medium, flex: 1 }}
-        />
-        {draft.number !== null && (
-          <span style={styles.muted}>{toQuoteReference('', draft.number)}</span>
-        )}
-        <Tag color={statusTag.color}>{statusTag.label}</Tag>
-      </div>
+  const stepBar = (
+    <nav aria-label="Quote steps" style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
+      {stepButton('edit', 1, isEditable ? 'Edit' : 'Details', () => setStep('edit'))}
+      <span style={styles.muted}>→</span>
+      {stepButton('review', 2, 'Review & share', goToReview)}
+    </nav>
+  );
 
+  const planBar = plan?.billingEnabled ? (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: theme.spacing[2],
+        flexWrap: 'wrap',
+        padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
+        border: `1px solid ${theme.border.color.light}`,
+        borderRadius: theme.border.radius.md,
+      }}
+    >
+      <span style={styles.muted}>
+        {plan.isPaid
+          ? 'QuoteFlow paid plan · unlimited quotes'
+          : `Free plan · ${Math.min(plan.activeQuoteCount, plan.freeLimit)} of ${plan.freeLimit} active quotes`}
+      </span>
+      {billingUrl ? (
+        <Button
+          variant="solid"
+          color="accent"
+          size="sm"
+          startIcon={<IconExternalLink size={theme.icon.size.sm} />}
+          href={billingUrl.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setBillingUrl(null)}
+        >
+          {billingUrl.kind === 'portal' ? 'Open billing portal' : 'Continue to checkout'}
+        </Button>
+      ) : (
+        <Button
+          variant={plan.isPaid ? 'ghost' : 'outline'}
+          color="neutral"
+          size="sm"
+          loading={isOpeningBilling}
+          disabled={isOpeningBilling}
+          onClick={openBilling}
+        >
+          {plan.isPaid ? 'Manage billing' : 'Upgrade'}
+        </Button>
+      )}
+    </div>
+  ) : null;
+
+  const editorFields = (
+    <>
       {!isEditable && (
         <span style={styles.muted}>
           This quote has been {statusTag.label.toLowerCase()} and can no longer be edited.
@@ -593,9 +743,7 @@ const QuoteEditor = () => {
             }
             style={{ ...styles.input, width: 'auto' }}
           >
-            {draft.expiresAt !== '' && (
-              <option value="current">{formatShortDate(draft.expiresAt)}</option>
-            )}
+            {draft.expiresAt !== '' && <option value="current">{formatShortDate(draft.expiresAt)}</option>}
             {VALIDITY_PRESET_DAYS.map((days) => (
               <option key={days} value={String(days)}>
                 {days} days — until {formatShortDate(toIsoDate(addDays(new Date(), days)))}
@@ -645,121 +793,158 @@ const QuoteEditor = () => {
           {money(totals.totalMicros)}
         </span>
       </div>
+    </>
+  );
 
-      {publicUrl && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[2] }}>
-          <span style={styles.label}>Client link</span>
-          <div style={{ display: 'flex', gap: theme.spacing[2], alignItems: 'center' }}>
-            <input
-              aria-label="Client link"
-              readOnly
-              value={publicUrl}
-              style={{ ...styles.input, flex: 1, color: theme.font.color.secondary }}
-            />
-            <Button
-              variant="outline"
-              color="neutral"
-              size="sm"
-              startIcon={<IconCopy size={theme.icon.size.sm} />}
-              onClick={copyLink}
-            >
-              Copy
-            </Button>
-            <Button
-              variant="outline"
-              color="neutral"
-              size="sm"
-              startIcon={<IconDownload size={theme.icon.size.sm} />}
-              href={`${publicUrl}?print=1`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              PDF
-            </Button>
-            <Button
-              aria-label="Open client link"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              startIcon={<IconExternalLink size={theme.icon.size.sm} />}
-              href={publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          </div>
-        </div>
-      )}
-
-      {plan?.billingEnabled && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: theme.spacing[2],
-            flexWrap: 'wrap',
-            padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
-            border: `1px solid ${theme.border.color.light}`,
-            borderRadius: theme.border.radius.md,
-          }}
+  const editActions = (
+    <div style={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: theme.spacing[2] }}>
+      {isEditable && isDirty && <span style={styles.muted}>Unsaved changes</span>}
+      {isEditable && (
+        <Button
+          variant="outline"
+          color="neutral"
+          size="sm"
+          loading={isSaving}
+          disabled={!isDirty || isSaving}
+          onClick={save}
         >
-          <span style={styles.muted}>
-            {plan.isPaid
-              ? 'QuoteFlow paid plan · unlimited quotes'
-              : `Free plan · ${Math.min(plan.activeQuoteCount, plan.freeLimit)} of ${plan.freeLimit} active quotes`}
-          </span>
-          {billingUrl ? (
-            <Button
-              variant="solid"
-              color="accent"
-              size="sm"
-              startIcon={<IconExternalLink size={theme.icon.size.sm} />}
-              href={billingUrl.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setBillingUrl(null)}
-            >
-              {billingUrl.kind === 'portal' ? 'Open billing portal' : 'Continue to checkout'}
-            </Button>
-          ) : (
-            <Button
-              variant={plan.isPaid ? 'ghost' : 'outline'}
-              color="neutral"
-              size="sm"
-              loading={isOpeningBilling}
-              disabled={isOpeningBilling}
-              onClick={openBilling}
-            >
-              {plan.isPaid ? 'Manage billing' : 'Upgrade'}
-            </Button>
-          )}
-        </div>
+          {draft.id === null ? 'Create quote' : 'Save quote'}
+        </Button>
       )}
+      <Button
+        variant="solid"
+        color="accent"
+        size="sm"
+        endIcon={<IconArrowRight size={theme.icon.size.sm} />}
+        loading={isSaving}
+        disabled={isSaving || (isEditable && !hasNamedLineItem)}
+        onClick={goToReview}
+      >
+        Next: Review & share
+      </Button>
+    </div>
+  );
 
-      <div style={{ display: 'flex', justifyContent: 'end', gap: theme.spacing[2] }}>
-        {isEditable && isDirty && (
-          <span style={{ ...styles.muted, alignSelf: 'center' }}>Unsaved changes</span>
-        )}
+  const livePreview = isWide ? (
+    <>
+      <span style={styles.label}>Live preview · what your client will see</span>
+      {previewFrame('760px')}
+    </>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[2] }}>
+      <div>
         <Button
           variant="ghost"
           color="neutral"
           size="sm"
-          startIcon={<IconEye size={theme.icon.size.sm} />}
-          onClick={() => setIsPreviewing(true)}
+          onClick={() => setIsNarrowPreviewOpen((isOpen) => !isOpen)}
         >
-          Preview as buyer
+          {isNarrowPreviewOpen ? 'Hide live preview' : 'Show live preview'}
         </Button>
-        {isEditable && (
+      </div>
+      {isNarrowPreviewOpen && previewFrame('640px')}
+    </div>
+  );
+
+  const summaryRow = (label: string, value: ReactNode) => (
+    <>
+      <span style={styles.muted}>{label}</span>
+      <span style={{ textAlign: 'right', overflowWrap: 'anywhere' }}>{value}</span>
+    </>
+  );
+
+  const linkPanel = publicUrl ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing[2] }}>
+      <span style={styles.label}>Client link</span>
+      <input
+        aria-label="Client link"
+        readOnly
+        value={publicUrl}
+        style={{ ...styles.input, color: theme.font.color.secondary }}
+      />
+      <div style={{ display: 'flex', gap: theme.spacing[2], flexWrap: 'wrap' }}>
+        <Button
+          variant="solid"
+          color="accent"
+          size="sm"
+          startIcon={<IconCopy size={theme.icon.size.sm} />}
+          onClick={copyLink}
+        >
+          Copy link
+        </Button>
+        <Button
+          variant="outline"
+          color="neutral"
+          size="sm"
+          startIcon={<IconDownload size={theme.icon.size.sm} />}
+          href={`${publicUrl}?print=1`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          PDF
+        </Button>
+        <Button
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          startIcon={<IconExternalLink size={theme.icon.size.sm} />}
+          href={publicUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
+  const reviewPanel = (
+    <>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          gap: `${theme.spacing[2]} ${theme.spacing[4]}`,
+          padding: theme.spacing[3],
+          border: `1px solid ${theme.border.color.light}`,
+          borderRadius: theme.border.radius.md,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {summaryRow('Client', draft.companyName ?? '—')}
+        {summaryRow(
+          'Line items',
+          String(draft.lineItems.filter((lineItem) => lineItem.name.trim() !== '').length),
+        )}
+        {summaryRow('Valid until', draft.expiresAt ? formatShortDate(draft.expiresAt) : 'No expiry')}
+        {summaryRow(
+          'Total',
+          <strong style={{ fontWeight: theme.font.weight.semiBold }}>{money(totals.totalMicros)}</strong>,
+        )}
+      </div>
+
+      {isEditable && (
+        <span style={styles.muted}>
+          Check the preview. Sending locks the quote and gives you a link to share with your client.
+        </span>
+      )}
+
+      {linkPanel}
+      {planBar}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: theme.spacing[2], flexWrap: 'wrap' }}>
+        {isEditable ? (
           <Button
-            variant={isDirty || draft.id === null ? 'solid' : 'outline'}
-            color={isDirty || draft.id === null ? 'accent' : 'neutral'}
+            variant="ghost"
+            color="neutral"
             size="sm"
-            loading={isSaving}
-            disabled={!isDirty || isSaving}
-            onClick={save}
+            startIcon={<IconArrowLeft size={theme.icon.size.sm} />}
+            onClick={() => setStep('edit')}
           >
-            {draft.id === null ? 'Create quote' : 'Save quote'}
+            Back to edit
           </Button>
+        ) : (
+          <span />
         )}
         {isEditable && draft.id !== null && (
           <Button
@@ -787,6 +972,29 @@ const QuoteEditor = () => {
           </Button>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div style={styles.root}>
+      {header}
+      {stepBar}
+      {step === 'edit'
+        ? twoColumns(
+            <>
+              {editorFields}
+              {editActions}
+            </>,
+            livePreview,
+          )
+        : twoColumns(
+            reviewPanel,
+            <>
+              <span style={styles.label}>What your client will see</span>
+              {previewFrame(isWide ? '760px' : '640px')}
+            </>,
+            'minmax(280px, 380px)',
+          )}
     </div>
   );
 };

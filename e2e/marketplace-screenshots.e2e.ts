@@ -62,7 +62,10 @@ test('capture the Quote tab and the client page', async ({ page, browser }) => {
   const quoteTab = page.getByText('Quote', { exact: true }).filter({ visible: true }).first();
 
   await quoteTab.click();
-  await expect(page.getByText('Preview as buyer')).toBeVisible();
+  await expect(page.getByText('Live preview · what your client will see')).toBeVisible();
+  await expect(
+    page.frameLocator('iframe[title="Quote preview"]').getByText('$6,903.00').first(),
+  ).toBeVisible();
   await expect(page.getByText('$6,903.00').first()).toBeVisible();
 
   // The demo workspace shows a mail sync banner that has nothing to do with QuoteFlow.
