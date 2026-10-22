@@ -67,6 +67,8 @@ const STATUS_TAGS: Record<
 
 const VALIDITY_PRESET_DAYS = [7, 14, 30, 60, 90];
 
+const SENT_QUOTE_REFRESH_MS = 15_000;
+
 const formatShortDate = (isoDate: string) =>
   new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`).toLocaleDateString('en-US', {
     month: 'short',
@@ -170,6 +172,50 @@ const QuoteEditor = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // A sent quote changes outside this tab when the client accepts it, so check again when the
+  // member comes back to the tab and every little while. Drafts are never refreshed, so nothing
+  // the member is typing gets overwritten.
+  const isAwaitingClient = draft?.status === QuoteStatus.SENT && !isChangingStatus;
+
+  useEffect(() => {
+    if (!isAwaitingClient || !opportunityId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const refresh = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+
+      try {
+        const loaded = await loadQuoteDraft(opportunityId);
+        const snapshot = JSON.stringify(loaded);
+
+        if (!isCancelled && snapshot !== savedSnapshot) {
+          setDraft(loaded);
+          setSavedSnapshot(snapshot);
+          refreshPlan();
+        }
+      } catch {
+        // Quiet: the next check tries again.
+      }
+    };
+
+    const interval = setInterval(refresh, SENT_QUOTE_REFRESH_MS);
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [isAwaitingClient, opportunityId, savedSnapshot, refreshPlan]);
 
   const totals = useMemo(() => (draft ? computeDraftTotals(draft) : null), [draft]);
   const deferredDraft = useDeferredValue(draft);

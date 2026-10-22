@@ -4,6 +4,8 @@ All notable changes to this application are documented in this file.
 
 ## Unreleased
 
+- A sent quote in the Quote tab updates by itself when the client accepts it.
+
 - Renamed the app to QuoteFlow for Twenty (npm package `twenty-quoteflow`).
 - Valid-until dates, buyer preview, message to client, terms, seller name and logo, and sequential quote numbers.
 - Hardening: the app role only reaches quotes, line items, opportunities and companies; quote status and link fields can only be changed by the app; only one quote per deal can be accepted; configurable won stage.

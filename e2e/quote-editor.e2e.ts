@@ -55,7 +55,7 @@ const openQuoteTabOnReview = async (page: Page) => {
   );
 };
 
-test('a salesperson edits with a live preview, reviews and sends a quote', async ({
+test('a salesperson edits with a live preview, sends a quote and sees the client accept it', async ({
   page,
   context,
 }) => {
@@ -111,10 +111,16 @@ test('a salesperson edits with a live preview, reviews and sends a quote', async
   await clientPage.goto(clientUrl);
   await expect(clientPage.getByText('Smoke test item')).toBeVisible();
   await expect(clientPage.getByText('$300.00').first()).toBeVisible();
-  await expect(clientPage.getByRole('button', { name: 'Accept quote' })).toBeVisible();
+  await clientPage.getByRole('button', { name: 'Accept quote' }).click();
+  await expect(clientPage.getByText(/^Accepted on /)).toBeVisible();
   await clientPage.close();
 
-  // Reopening a sent quote lands on the review step.
+  // The open Quote tab notices the acceptance by itself, without a reload.
+  await page.bringToFront();
+  await expect(page.getByText('Accepted', { exact: true })).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByRole('button', { name: 'Withdraw and edit' })).toHaveCount(0);
+
+  // Reopening a quote that has been sent lands on the review step.
   await page.reload();
   await openQuoteTabOnReview(page);
 });
