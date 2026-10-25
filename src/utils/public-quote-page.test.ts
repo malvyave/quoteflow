@@ -36,10 +36,11 @@ describe('renderQuotePage', () => {
     const html = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
 
     expect(html).toContain('Homepage redesign');
-    expect(html).toContain('Prepared for');
-    expect(html).toContain('Acme Corp');
-    expect(html).toContain('Discount (10%)');
-    expect(html).toContain('Tax (18%)');
+    expect(html).toContain('<h1>QUOTE</h1>');
+    expect(html).toContain('<span>Quote Number</span><span class="value">: Q-FB2CEDE7</span>');
+    expect(html).toContain('<p><strong>Name</strong><span>: Acme Corp</span></p>');
+    expect(html).toContain('DISCOUNT (10%)');
+    expect(html).toContain('<span>TAX RATE (%)</span><span>18%</span>');
     expect(html).toContain('$6,903.00');
     expect(html).toContain('action="./abc/accept"');
     expect(html).toContain('Accept quote');
@@ -92,14 +93,14 @@ describe('renderQuotePage', () => {
     expect(printing).toContain("window.addEventListener('load'");
   });
 
-  it('hides discount and tax rows when they are zero', () => {
+  it('hides the discount row when there is none, and always shows the tax rate', () => {
     const html = renderQuotePage({
       quote: quote({ discountPercent: 0, taxPercent: 0 }),
       acceptActionUrl: './abc/accept',
     });
 
-    expect(html).not.toContain('Discount (');
-    expect(html).not.toContain('Tax (');
+    expect(html).not.toContain('DISCOUNT (');
+    expect(html).toContain('<span>TAX RATE (%)</span><span>0%</span>');
     expect(html).toContain('$6,500.00');
   });
 });
@@ -133,11 +134,10 @@ describe('renderQuotePage details', () => {
       acceptActionUrl: './abc/accept',
     });
 
-    expect(html).toContain('<img src="https://northwind.test/logo.png" alt="Northwind Studio">');
-    expect(html).toContain('<span>Northwind Studio</span>');
-    expect(html).toContain('<dt>Valid until</dt><dd>November 17, 2026</dd>');
-    expect(html).toContain('<p class="prose">Thanks for the call!\nHere is the proposal.</p>');
-    expect(html).toContain('<p class="label">Terms</p><p>Net 30. 50% upfront.</p>');
+    expect(html).toContain('<img class="logo" src="https://northwind.test/logo.png" alt="Northwind Studio">');
+    expect(html).toContain('<span>Valid Until</span><span class="value">: November 17, 2026</span>');
+    expect(html).toContain('<p>Thanks for the call!\nHere is the proposal.</p>');
+    expect(html).toContain('<h3>Terms &amp; Conditions</h3><ul><li>Net 30. 50% upfront.</li></ul>');
   });
 
   it('escapes the seller name, message and terms', () => {
@@ -182,10 +182,9 @@ describe('renderQuotePage details', () => {
       acceptActionUrl: './abc/accept',
     });
 
-    expect(html).not.toContain('class="prose"');
-    expect(html).not.toContain('>Terms<');
-    expect(html).not.toContain('Payment instructions');
-    expect(html).not.toContain('class="doc-foot"');
+    expect(html).not.toContain('Terms &amp; Conditions');
+    expect(html).not.toContain('Payment Instructions');
+    expect(html).not.toContain('class="invoice-footer"');
   });
 
   it('addresses the client by company, contact and address', () => {
@@ -201,15 +200,31 @@ describe('renderQuotePage details', () => {
       acceptActionUrl: './abc/accept',
     });
 
-    expect(html).toContain(
-      '<p class="label">Prepared for</p><strong>Acme Corp</strong><br>Samira Hadid<br>samira@acme.test<br>123 Anywhere St.<br>Any City, ST 12345',
-    );
+    expect(html).toContain('<p><strong>Name</strong><span>: Acme Corp</span></p>');
+    expect(html).toContain('<p><strong>Address</strong><span>: 123 Anywhere St., Any City, ST 12345</span></p>');
+    expect(html).toContain('<p><strong>Contact</strong><span>: Samira Hadid · samira@acme.test</span></p>');
   });
 
-  it('leaves out the client block when the deal has no company or contact', () => {
-    const html = renderQuotePage({ quote: quote({ client: EMPTY_CLIENT }), acceptActionUrl: './abc/accept' });
+  it('names the contact when the deal has no company, and shows dashes for missing details', () => {
+    const withContactOnly = renderQuotePage({
+      quote: quote({ client: { ...EMPTY_CLIENT, contactName: 'Samira Hadid' } }),
+      acceptActionUrl: './abc/accept',
+    });
+    const empty = renderQuotePage({ quote: quote({ client: EMPTY_CLIENT }), acceptActionUrl: './abc/accept' });
 
-    expect(html).not.toContain('Prepared for');
+    expect(withContactOnly).toContain('<strong>Name</strong><span>: Samira Hadid</span>');
+    expect(withContactOnly).toContain('<strong>Contact</strong><span>: —</span>');
+    expect(empty).toContain('<strong>Name</strong><span>: —</span>');
+  });
+
+  it('shows the seller name in place of a logo', () => {
+    const html = renderQuotePage({
+      quote: quote({ seller: { ...EMPTY_SELLER, name: 'Northwind Studio' } }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).toContain('<span class="logo-text">Northwind Studio</span>');
+    expect(html).not.toContain('<img');
   });
 
   it('shows the seller details, tax ID and payment instructions', () => {
@@ -229,11 +244,11 @@ describe('renderQuotePage details', () => {
       acceptActionUrl: './abc/accept',
     });
 
-    expect(html).toContain('<strong>Northwind Studio</strong><br>GSTIN 29ABCDE1234F1Z5');
-    expect(html).toContain(
-      '+91 98765 43210<br>hello@northwind.test<br>northwind.test<br>12 MG Road<br>Bengaluru 560001',
-    );
-    expect(html).toContain('<p class="label">Payment instructions</p><p>UPI: northwind@bank</p>');
+    expect(html).toContain('<span class="icon" aria-hidden="true">☎</span>+91 98765 43210');
+    expect(html).toContain('<span class="icon" aria-hidden="true">✉</span>hello@northwind.test');
+    expect(html).toContain('<span class="icon" aria-hidden="true">⌂</span>12 MG Road, Bengaluru 560001');
+    expect(html).toContain('<span class="icon" aria-hidden="true">#</span>GSTIN 29ABCDE1234F1Z5');
+    expect(html).toContain('<h3>Payment Instructions</h3><p>UPI: northwind@bank</p>');
   });
 
   it('escapes the client and seller details', () => {
