@@ -106,6 +106,16 @@ test('a salesperson edits with a live preview, sends a quote and sees the client
   await expect(page.getByRole('button', { name: 'Withdraw and edit' })).toBeVisible();
 
   const clientUrl = await clientLink.inputValue();
+
+  // The suggested email carries the number and the real link, ready for the member's mail app.
+  await expect(page.getByRole('textbox', { name: 'Email subject' })).toHaveValue(/^Quote Q-\d{4,}/);
+  await expect(page.getByRole('textbox', { name: 'Email body' })).toHaveValue(
+    new RegExp(clientUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+  );
+  await expect(page.getByRole('link', { name: 'Open in email app' })).toHaveAttribute(
+    'href',
+    /^mailto:.*subject=Quote%20Q-\d{4,}/,
+  );
   const clientPage = await context.browser()!.newPage();
 
   await clientPage.goto(clientUrl);

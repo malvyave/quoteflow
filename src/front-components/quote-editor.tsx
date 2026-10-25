@@ -21,6 +21,7 @@ import {
   IconCopy,
   IconDownload,
   IconExternalLink,
+  IconMail,
   IconArrowLeft,
   IconArrowRight,
   IconPlus,
@@ -48,6 +49,7 @@ import {
 import { EMPTY_SELLER, type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 import { addDays, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
+import { buildQuoteEmail, toMailtoUrl, toPlainEmail, type QuoteEmail } from 'src/utils/quote-email';
 import { renderDraftPreview } from 'src/utils/quote-preview';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
 import { formatMoney } from 'src/utils/quote-totals';
@@ -134,6 +136,8 @@ const QuoteEditor = () => {
     null,
   );
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  // Changes the member makes to the suggested email; never saved.
+  const [emailEdits, setEmailEdits] = useState<Partial<QuoteEmail>>({});
 
   // The plan bar is informational: if it cannot load, the editor still works.
   const refreshPlan = useCallback(() => {
@@ -216,6 +220,11 @@ const QuoteEditor = () => {
       document.removeEventListener('visibilitychange', refresh);
     };
   }, [isAwaitingClient, opportunityId, savedSnapshot, refreshPlan]);
+
+  // A new quote or a new link means a new suggested email.
+  useEffect(() => {
+    setEmailEdits({});
+  }, [draft?.id, draft?.publicToken]);
 
   const totals = useMemo(() => (draft ? computeDraftTotals(draft) : null), [draft]);
   const deferredDraft = useDeferredValue(draft);
@@ -483,7 +492,23 @@ const QuoteEditor = () => {
     }
   };
 
+  const suggestedEmail = buildQuoteEmail({
+    reference: draft.number !== null && draft.id ? toQuoteReference(draft.id, draft.number) : 'Q-····',
+    quoteName: draft.name,
+    total: money(totals.totalMicros),
+    validUntil: draft.expiresAt ? formatShortDate(draft.expiresAt) : null,
+    message: draft.message,
+    contactName: draft.client.contactName,
+    contactEmail: draft.client.contactEmail,
+    sellerName: seller.name,
+    clientUrl: publicUrl,
+  });
+  const email: QuoteEmail = { ...suggestedEmail, ...emailEdits };
+  const isEmailEdited = Object.keys(emailEdits).length > 0;
+
   // Twenty shows its own "copied" or "couldn't copy" toast, so none is added here.
+  const copyEmail = () => copyToClipboard(toPlainEmail(email));
+
   const copyLink = () => {
     if (publicUrl) {
       copyToClipboard(publicUrl);
@@ -944,6 +969,78 @@ const QuoteEditor = () => {
     </div>
   ) : null;
 
+  // QuoteFlow does not send email: the member sends this from their own email app, so replies
+  // come straight back to them.
+  const emailPanel =
+    isEditable || draft.status === QuoteStatus.SENT ? (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing[2],
+          padding: theme.spacing[3],
+          border: `1px solid ${theme.border.color.light}`,
+          borderRadius: theme.border.radius.md,
+        }}
+      >
+        <span style={{ ...styles.label, flexDirection: 'row', justifyContent: 'space-between' }}>
+          Email to client
+          {isEmailEdited && (
+            <Button variant="ghost" color="neutral" size="sm" onClick={() => setEmailEdits({})}>
+              Reset
+            </Button>
+          )}
+        </span>
+        {isEditable && (
+          <span style={styles.muted}>Preview. The quote number and link are added when you send.</span>
+        )}
+        <input
+          aria-label="Email to"
+          placeholder="client@example.com"
+          value={email.to}
+          onChange={(event) => setEmailEdits((current) => ({ ...current, to: event.target.value }))}
+          style={styles.input}
+        />
+        <input
+          aria-label="Email subject"
+          value={email.subject}
+          onChange={(event) => setEmailEdits((current) => ({ ...current, subject: event.target.value }))}
+          style={styles.input}
+        />
+        <textarea
+          aria-label="Email body"
+          rows={12}
+          value={email.body}
+          onChange={(event) => setEmailEdits((current) => ({ ...current, body: event.target.value }))}
+          style={styles.textarea}
+        />
+        {publicUrl && (
+          <div style={{ display: 'flex', gap: theme.spacing[2], flexWrap: 'wrap' }}>
+            <Button
+              variant="solid"
+              color="accent"
+              size="sm"
+              startIcon={<IconMail size={theme.icon.size.sm} />}
+              href={toMailtoUrl(email)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in email app
+            </Button>
+            <Button
+              variant="outline"
+              color="neutral"
+              size="sm"
+              startIcon={<IconCopy size={theme.icon.size.sm} />}
+              onClick={copyEmail}
+            >
+              Copy email
+            </Button>
+          </div>
+        )}
+      </div>
+    ) : null;
+
   const reviewPanel = (
     <>
       <div
@@ -976,6 +1073,7 @@ const QuoteEditor = () => {
       )}
 
       {linkPanel}
+      {emailPanel}
       {planBar}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: theme.spacing[2], flexWrap: 'wrap' }}>
