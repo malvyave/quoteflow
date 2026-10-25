@@ -4,6 +4,8 @@ import {
   escapeHtml,
   renderMessagePage,
   renderQuotePage,
+  EMPTY_CLIENT,
+  EMPTY_SELLER,
   type PublicQuote,
 } from 'src/utils/public-quote-page';
 import { majorToMicros } from 'src/utils/quote-totals';
@@ -20,8 +22,8 @@ const quote = (overrides: Partial<PublicQuote> = {}): PublicQuote => ({
   expiresAt: null,
   message: null,
   terms: null,
-  companyName: 'Acme Corp',
-  seller: { name: null, logoUrl: null },
+  client: { ...EMPTY_CLIENT, companyName: 'Acme Corp' },
+  seller: EMPTY_SELLER,
   lineItems: [
     { name: 'Homepage redesign', quantity: 1, unitPriceMicros: majorToMicros(4000) },
     { name: 'Mobile version', quantity: 1, unitPriceMicros: majorToMicros(2500) },
@@ -34,7 +36,8 @@ describe('renderQuotePage', () => {
     const html = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
 
     expect(html).toContain('Homepage redesign');
-    expect(html).toContain('For Acme Corp');
+    expect(html).toContain('Prepared for');
+    expect(html).toContain('Acme Corp');
     expect(html).toContain('Discount (10%)');
     expect(html).toContain('Tax (18%)');
     expect(html).toContain('$6,903.00');
@@ -46,7 +49,7 @@ describe('renderQuotePage', () => {
     const html = renderQuotePage({
       quote: quote({
         name: '<script>alert(1)</script>',
-        companyName: '"Evil" & Co',
+        client: { ...EMPTY_CLIENT, companyName: '"Evil" & Co' },
         lineItems: [{ name: '<img src=x onerror=alert(1)>', quantity: 1, unitPriceMicros: 0 }],
       }),
       acceptActionUrl: './abc/accept',
@@ -122,7 +125,7 @@ describe('renderQuotePage details', () => {
   it('shows the seller, validity date, message and terms', () => {
     const html = renderQuotePage({
       quote: quote({
-        seller: { name: 'Northwind Studio', logoUrl: 'https://northwind.test/logo.png' },
+        seller: { ...EMPTY_SELLER, name: 'Northwind Studio', logoUrl: 'https://northwind.test/logo.png' },
         expiresAt: '2026-11-17',
         message: 'Thanks for the call!\nHere is the proposal.',
         terms: 'Net 30. 50% upfront.',
@@ -132,15 +135,15 @@ describe('renderQuotePage details', () => {
 
     expect(html).toContain('<img src="https://northwind.test/logo.png" alt="Northwind Studio">');
     expect(html).toContain('<span>Northwind Studio</span>');
-    expect(html).toContain('Valid until November 17, 2026');
+    expect(html).toContain('<dt>Valid until</dt><dd>November 17, 2026</dd>');
     expect(html).toContain('<p class="prose">Thanks for the call!\nHere is the proposal.</p>');
-    expect(html).toContain('<h2>Terms</h2><p class="terms">Net 30. 50% upfront.</p>');
+    expect(html).toContain('<p class="label">Terms</p><p>Net 30. 50% upfront.</p>');
   });
 
   it('escapes the seller name, message and terms', () => {
     const html = renderQuotePage({
       quote: quote({
-        seller: { name: '<b>Evil</b>', logoUrl: null },
+        seller: { ...EMPTY_SELLER, name: '<b>Evil</b>' },
         message: '<script>x</script>',
         terms: '<img src=x onerror=y>',
       }),
@@ -180,7 +183,87 @@ describe('renderQuotePage details', () => {
     });
 
     expect(html).not.toContain('class="prose"');
-    expect(html).not.toContain('<h2>Terms</h2>');
-    expect(html).not.toContain('class="seller"');
+    expect(html).not.toContain('>Terms<');
+    expect(html).not.toContain('Payment instructions');
+    expect(html).not.toContain('class="doc-foot"');
+  });
+
+  it('addresses the client by company, contact and address', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        client: {
+          companyName: 'Acme Corp',
+          contactName: 'Samira Hadid',
+          contactEmail: 'samira@acme.test',
+          addressLines: ['123 Anywhere St.', 'Any City, ST 12345'],
+        },
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).toContain(
+      '<p class="label">Prepared for</p><strong>Acme Corp</strong><br>Samira Hadid<br>samira@acme.test<br>123 Anywhere St.<br>Any City, ST 12345',
+    );
+  });
+
+  it('leaves out the client block when the deal has no company or contact', () => {
+    const html = renderQuotePage({ quote: quote({ client: EMPTY_CLIENT }), acceptActionUrl: './abc/accept' });
+
+    expect(html).not.toContain('Prepared for');
+  });
+
+  it('shows the seller details, tax ID and payment instructions', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        seller: {
+          ...EMPTY_SELLER,
+          name: 'Northwind Studio',
+          taxId: 'GSTIN 29ABCDE1234F1Z5',
+          phone: '+91 98765 43210',
+          email: 'hello@northwind.test',
+          website: 'northwind.test',
+          addressLines: ['12 MG Road', 'Bengaluru 560001'],
+          paymentInstructions: 'UPI: northwind@bank',
+        },
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).toContain('<strong>Northwind Studio</strong><br>GSTIN 29ABCDE1234F1Z5');
+    expect(html).toContain(
+      '+91 98765 43210<br>hello@northwind.test<br>northwind.test<br>12 MG Road<br>Bengaluru 560001',
+    );
+    expect(html).toContain('<p class="label">Payment instructions</p><p>UPI: northwind@bank</p>');
+  });
+
+  it('escapes the client and seller details', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        client: { ...EMPTY_CLIENT, contactName: '<i>x</i>' },
+        seller: { ...EMPTY_SELLER, phone: '<b>1</b>', paymentInstructions: '<script>y</script>' },
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).not.toContain('<i>x</i>');
+    expect(html).not.toContain('<b>1</b>');
+    expect(html).not.toContain('<script>y</script>');
+  });
+
+  it('uses the brand color as the accent', () => {
+    const branded = renderQuotePage({
+      quote: quote({ seller: { ...EMPTY_SELLER, accentColor: '#e4572e' } }),
+      acceptActionUrl: './abc/accept',
+    });
+    const plain = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
+
+    expect(branded).toContain(':root { --accent: #e4572e; }');
+    expect(plain).not.toContain(':root { --accent: #');
+  });
+
+  it('prints without page margins, so browsers cannot add the link in a header or footer', () => {
+    const html = renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' });
+
+    expect(html).toContain('@page { margin: 0; }');
   });
 });

@@ -26,8 +26,10 @@ Workspaces that use QuoteFlow during the beta get 50% off the paid plan for life
 - The quote uses the deal's currency.
 - Valid-until dates. Expired quotes can no longer be accepted.
 - Sequential quote numbers (Q-0001, Q-0002, …).
-- Your company name and logo on the quote.
-- Clean client page with a layout for small screens, which prints to a tidy PDF.
+- Branded quotes: your logo, brand color, contact details, tax ID and payment instructions.
+- The client's company, contact person and address in a "Prepared for" block, filled in from the deal.
+- Default message and terms for new quotes.
+- Clean client page with a layout for small screens, which prints to a tidy PDF without the browser's header and footer, so the private link never ends up in the file.
 - Withdraw a sent quote to edit it; the old link stops working.
 - Only one quote per deal can be accepted. Other open quotes on the deal are marked **Superseded**, and their links explain that they were replaced.
 
@@ -40,6 +42,11 @@ Find these under **Settings → Apps → QuoteFlow → Variables**.
 | Stage for accepted deals | The deal stage set when a client accepts. Defaults to `CUSTOMER`. If your pipeline does not have this stage, the deal amount is still updated and the stage is left as is. |
 | Seller name | Company name shown on quotes. Leave empty to use your workspace name. |
 | Seller logo URL | A public `https://` link to your logo. Leave empty to use your workspace logo, if you have one. |
+| Seller address, email, phone, website | Contact details in the quote footer. Separate address lines with commas. |
+| Tax ID | Your tax registration, for example a GSTIN or VAT number. |
+| Payment instructions | Optional bank or UPI details shown under the terms. |
+| Brand color | Accent color as a hex code, for example `#1961ED`. |
+| Default message, Default terms | What new quotes start with. Each quote can still be changed. |
 
 ## What QuoteFlow can access
 
@@ -47,9 +54,10 @@ QuoteFlow only works with the records it needs:
 
 - **Quotes and quote line items** (its own objects): read and write.
 - **Opportunities**: read, and update the stage and amount when a quote is accepted.
-- **Companies**: read the company name shown on the quote.
+- **Companies**: read the client's company name and address shown on the quote.
+- **People**: read the deal's point of contact, to show their name and email on the quote.
 
-It has no access to people, notes, emails or any other records. In the Quote tab it never does more than the signed-in member is allowed to do.
+It has no access to notes, emails or any other records, and never changes companies or people. In the Quote tab it never does more than the signed-in member is allowed to do.
 
 ## Your data
 

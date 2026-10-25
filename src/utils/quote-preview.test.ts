@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_CLIENT, EMPTY_SELLER } from 'src/utils/public-quote-page';
 import { type QuoteDraft } from 'src/utils/quote-api';
 import { renderDraftPreview, toPreviewQuote } from 'src/utils/quote-preview';
 import { majorToMicros } from 'src/utils/quote-totals';
@@ -12,7 +13,7 @@ const draft = (overrides: Partial<QuoteDraft> = {}): QuoteDraft => ({
   number: null,
   sentAt: null,
   acceptedAt: null,
-  companyName: 'Acme Corp',
+  client: { ...EMPTY_CLIENT, companyName: 'Acme Corp' },
   currencyCode: 'USD',
   discountPercent: '10',
   taxPercent: '18',
@@ -27,7 +28,7 @@ const draft = (overrides: Partial<QuoteDraft> = {}): QuoteDraft => ({
   ...overrides,
 });
 
-const seller = { name: 'Northwind Studio', logoUrl: null };
+const seller = { ...EMPTY_SELLER, name: 'Northwind Studio' };
 
 describe('toPreviewQuote', () => {
   it('converts the editable strings into the public quote shape', () => {

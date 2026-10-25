@@ -5,7 +5,11 @@ import {
   isQuoteExpired,
   toIsoDate,
   toQuoteReference,
+  splitAddressSetting,
+  toAddressLines,
+  toSafeColor,
   toSafeImageUrl,
+  toQuoteClient,
 } from 'src/utils/quote-details';
 
 describe('toQuoteReference', () => {
@@ -60,5 +64,77 @@ describe('toSafeImageUrl', () => {
     expect(toSafeImageUrl('https://x.com/a.png" onerror="alert(1)')).toBeNull();
     expect(toSafeImageUrl('')).toBeNull();
     expect(toSafeImageUrl(null)).toBeNull();
+  });
+});
+
+describe('toSafeColor', () => {
+  it('accepts hex colors and normalizes them', () => {
+    expect(toSafeColor('#1961ED')).toBe('#1961ed');
+    expect(toSafeColor(' #abc ')).toBe('#abc');
+  });
+
+  it('rejects anything that is not a plain hex color', () => {
+    expect(toSafeColor('red')).toBeNull();
+    expect(toSafeColor('#12345')).toBeNull();
+    expect(toSafeColor('#fff; background: url(x)')).toBeNull();
+    expect(toSafeColor(undefined)).toBeNull();
+  });
+});
+
+describe('toAddressLines', () => {
+  it('formats a full address as letter lines', () => {
+    expect(
+      toAddressLines({
+        addressStreet1: '1600 Amphitheatre Pkwy',
+        addressStreet2: 'Building 40',
+        addressCity: 'Mountain View',
+        addressState: 'CA',
+        addressPostcode: '94043',
+        addressCountry: 'United States',
+      }),
+    ).toEqual(['1600 Amphitheatre Pkwy, Building 40', 'Mountain View, CA 94043', 'United States']);
+  });
+
+  it('leaves out empty parts', () => {
+    expect(toAddressLines({ addressCity: 'Pune', addressCountry: ' ', addressPostcode: '' })).toEqual([
+      'Pune',
+    ]);
+    expect(toAddressLines(null)).toEqual([]);
+  });
+});
+
+describe('splitAddressSetting', () => {
+  it('splits on commas and trims', () => {
+    expect(splitAddressSetting('12 MG Road,  Bengaluru 560001 , India')).toEqual([
+      '12 MG Road',
+      'Bengaluru 560001',
+      'India',
+    ]);
+    expect(splitAddressSetting('')).toEqual([]);
+  });
+});
+
+describe('toQuoteClient', () => {
+  it('combines the company and point of contact', () => {
+    expect(
+      toQuoteClient(
+        { name: ' Acme Corp ', address: { addressCity: 'Pune', addressCountry: 'India' } },
+        { name: { firstName: 'Samira', lastName: 'Hadid' }, emails: { primaryEmail: 'samira@acme.test' } },
+      ),
+    ).toEqual({
+      companyName: 'Acme Corp',
+      contactName: 'Samira Hadid',
+      contactEmail: 'samira@acme.test',
+      addressLines: ['Pune', 'India'],
+    });
+  });
+
+  it('is empty when the deal has neither', () => {
+    expect(toQuoteClient(null, undefined)).toEqual({
+      companyName: null,
+      contactName: null,
+      contactEmail: null,
+      addressLines: [],
+    });
   });
 });

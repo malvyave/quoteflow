@@ -4,9 +4,18 @@ import {
   APP_DESCRIPTION,
   APP_DISPLAY_NAME,
   APPLICATION_UNIVERSAL_IDENTIFIER,
+  BRAND_COLOR_VARIABLE_UNIVERSAL_IDENTIFIER,
+  DEFAULT_MESSAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
+  DEFAULT_TERMS_VARIABLE_UNIVERSAL_IDENTIFIER,
   DEFAULT_WON_STAGE,
+  PAYMENT_INSTRUCTIONS_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_ADDRESS_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_EMAIL_VARIABLE_UNIVERSAL_IDENTIFIER,
   SELLER_LOGO_URL_VARIABLE_UNIVERSAL_IDENTIFIER,
   SELLER_NAME_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_PHONE_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_TAX_ID_VARIABLE_UNIVERSAL_IDENTIFIER,
+  SELLER_WEBSITE_VARIABLE_UNIVERSAL_IDENTIFIER,
   WON_STAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
 } from 'src/constants/universal-identifiers';
 
@@ -41,6 +50,78 @@ export default defineApplication({
       label: 'Seller logo URL',
       description:
         'Public https link to a logo image shown on quotes. Leave empty to use the workspace logo, if any.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_ADDRESS: {
+      universalIdentifier: SELLER_ADDRESS_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller address',
+      description:
+        'Your business address, shown in the quote footer. Use commas to separate lines.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_EMAIL: {
+      universalIdentifier: SELLER_EMAIL_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller email',
+      description:
+        'Contact email shown in the quote footer.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_PHONE: {
+      universalIdentifier: SELLER_PHONE_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller phone',
+      description:
+        'Contact phone number shown in the quote footer.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_WEBSITE: {
+      universalIdentifier: SELLER_WEBSITE_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Seller website',
+      description:
+        'Website shown in the quote footer, for example example.com.',
+      value: '',
+      isSecret: false,
+    },
+    SELLER_TAX_ID: {
+      universalIdentifier: SELLER_TAX_ID_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Tax ID',
+      description:
+        'Tax registration shown on quotes, for example "GSTIN 29ABCDE1234F1Z5" or "VAT GB123456789".',
+      value: '',
+      isSecret: false,
+    },
+    PAYMENT_INSTRUCTIONS: {
+      universalIdentifier: PAYMENT_INSTRUCTIONS_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Payment instructions',
+      description:
+        'Optional. How to pay, for example bank or UPI details. Shown under the terms on every quote.',
+      value: '',
+      isSecret: false,
+    },
+    BRAND_COLOR: {
+      universalIdentifier: BRAND_COLOR_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Brand color',
+      description:
+        'Accent color for quotes as a hex code, for example #1961ED. Leave empty for the default blue.',
+      value: '',
+      isSecret: false,
+    },
+    DEFAULT_MESSAGE: {
+      universalIdentifier: DEFAULT_MESSAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Default message',
+      description:
+        'Message to the client that new quotes start with. It can be changed on each quote.',
+      value: '',
+      isSecret: false,
+    },
+    DEFAULT_TERMS: {
+      universalIdentifier: DEFAULT_TERMS_VARIABLE_UNIVERSAL_IDENTIFIER,
+      label: 'Default terms',
+      description:
+        'Terms that new quotes start with. They can be changed on each quote.',
       value: '',
       isSecret: false,
     },

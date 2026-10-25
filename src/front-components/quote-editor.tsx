@@ -45,7 +45,7 @@ import {
   type PlanStatus,
   type QuoteDraft,
 } from 'src/utils/quote-api';
-import { type QuoteSeller } from 'src/utils/public-quote-page';
+import { EMPTY_SELLER, type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 import { addDays, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
 import { renderDraftPreview } from 'src/utils/quote-preview';
@@ -128,7 +128,7 @@ const QuoteEditor = () => {
   const [step, setStep] = useState<WizardStep>('edit');
   const [isNarrowPreviewOpen, setIsNarrowPreviewOpen] = useState(false);
   const isWide = useIsWideWidget();
-  const [seller, setSeller] = useState<QuoteSeller>({ name: null, logoUrl: null });
+  const [seller, setSeller] = useState<QuoteSeller>(EMPTY_SELLER);
   const [plan, setPlan] = useState<PlanStatus | null>(null);
   const [billingUrl, setBillingUrl] = useState<{ kind: 'checkout' | 'portal'; url: string } | null>(
     null,
@@ -143,10 +143,7 @@ const QuoteEditor = () => {
   }, []);
 
   useEffect(() => {
-    loadQuoteSeller({
-      sellerName: getApplicationVariable('SELLER_NAME'),
-      sellerLogoUrl: getApplicationVariable('SELLER_LOGO_URL'),
-    }).then(setSeller);
+    loadQuoteSeller(getApplicationVariable).then(setSeller);
   }, []);
 
   const load = useCallback(async () => {
@@ -157,7 +154,10 @@ const QuoteEditor = () => {
     setLoadError(null);
 
     try {
-      const loaded = await loadQuoteDraft(opportunityId);
+      const loaded = await loadQuoteDraft(opportunityId, {
+        message: getApplicationVariable('DEFAULT_MESSAGE')?.trim() ?? '',
+        terms: getApplicationVariable('DEFAULT_TERMS')?.trim() ?? '',
+      });
 
       setDraft(loaded);
       setSavedSnapshot(JSON.stringify(loaded));
@@ -957,7 +957,7 @@ const QuoteEditor = () => {
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {summaryRow('Client', draft.companyName ?? '—')}
+        {summaryRow('Client', draft.client.companyName ?? draft.client.contactName ?? '—')}
         {summaryRow(
           'Line items',
           String(draft.lineItems.filter((lineItem) => lineItem.name.trim() !== '').length),

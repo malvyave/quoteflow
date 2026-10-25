@@ -18,7 +18,7 @@ export const toPreviewQuote = (draft: QuoteDraft, seller: QuoteSeller): PublicQu
   expiresAt: draft.expiresAt || null,
   message: draft.message,
   terms: draft.terms,
-  companyName: draft.companyName,
+  client: draft.client,
   seller,
   // Rows without a description are not saved, so they are not shown either.
   lineItems: draft.lineItems

@@ -3,7 +3,8 @@ import { RestApiClient, RestApiClientError } from 'twenty-client-sdk/rest';
 
 import { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 import { type PlanStatus } from 'src/utils/billing';
-import { addDays, DEFAULT_VALIDITY_DAYS, toIsoDate } from 'src/utils/quote-details';
+import { type QuoteClient } from 'src/utils/public-quote-page';
+import { addDays, DEFAULT_VALIDITY_DAYS, toIsoDate, toQuoteClient } from 'src/utils/quote-details';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
 
 export const DEFAULT_CURRENCY_CODE = 'USD';
@@ -34,8 +35,8 @@ export type QuoteDraft = {
   number: number | null;
   sentAt: string | null;
   acceptedAt: string | null;
-  // The client's company, shown in the buyer preview; not saved from the editor.
-  companyName: string | null;
+  // Who the quote is for, from the deal; shown in the preview, not saved from the editor.
+  client: QuoteClient;
   currencyCode: string;
   discountPercent: string;
   taxPercent: string;
@@ -72,8 +73,14 @@ export const computeDraftTotals = (draft: QuoteDraft) =>
     taxPercent: parseNumber(draft.taxPercent),
   });
 
-// Loads the opportunity's most recent quote, or an unsaved draft if it has none.
-export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft> => {
+export type QuoteDefaults = { message: string; terms: string };
+
+// Loads the opportunity's most recent quote, or an unsaved draft if it has none. New drafts
+// start from the workspace's default message and terms.
+export const loadQuoteDraft = async (
+  opportunityId: string,
+  defaults: QuoteDefaults = { message: '', terms: '' },
+): Promise<QuoteDraft> => {
   const client = new CoreApiClient();
 
   const { opportunity, quotes } = await client.query({
@@ -81,7 +88,18 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
       __args: { filter: { id: { eq: opportunityId } } },
       name: true,
       amount: { currencyCode: true },
-      company: { name: true },
+      company: {
+        name: true,
+        address: {
+          addressStreet1: true,
+          addressStreet2: true,
+          addressCity: true,
+          addressState: true,
+          addressPostcode: true,
+          addressCountry: true,
+        },
+      },
+      pointOfContact: { name: { firstName: true, lastName: true }, emails: { primaryEmail: true } },
     },
     quotes: {
       __args: {
@@ -110,7 +128,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
   });
 
   const quote = quotes?.edges[0]?.node;
-  const companyName = opportunity?.company?.name ?? null;
+  const quoteClient = toQuoteClient(opportunity?.company, opportunity?.pointOfContact);
 
   if (!quote) {
     return {
@@ -121,13 +139,13 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
       number: null,
       sentAt: null,
       acceptedAt: null,
-      companyName,
+      client: quoteClient,
       currencyCode: opportunity?.amount?.currencyCode || DEFAULT_CURRENCY_CODE,
       discountPercent: '0',
       taxPercent: '0',
       expiresAt: toIsoDate(addDays(new Date(), DEFAULT_VALIDITY_DAYS)),
-      message: '',
-      terms: '',
+      message: defaults.message,
+      terms: defaults.terms,
       lineItems: [newLineItemDraft()],
     };
   }
@@ -158,7 +176,7 @@ export const loadQuoteDraft = async (opportunityId: string): Promise<QuoteDraft>
     number: quote.number ?? null,
     sentAt: quote.sentAt ?? null,
     acceptedAt: quote.acceptedAt ?? null,
-    companyName,
+    client: quoteClient,
     currencyCode: quote.currencyCode || DEFAULT_CURRENCY_CODE,
     discountPercent: String(quote.discountPercent ?? 0),
     taxPercent: String(quote.taxPercent ?? 0),

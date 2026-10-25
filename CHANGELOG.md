@@ -4,6 +4,9 @@ All notable changes to this application are documented in this file.
 
 ## Unreleased
 
+- Redesigned quote document: logo and big "Quote" heading, a "Prepared for" block from the deal's company and contact, a seller footer with contact details and tax ID, payment instructions and a brand color.
+- Default message and terms for new quotes.
+- PDFs no longer include the browser's header and footer, which showed the quote's private link.
 - A sent quote in the Quote tab updates by itself when the client accepts it.
 
 - Renamed the app to QuoteFlow for Twenty (npm package `twenty-quoteflow`).

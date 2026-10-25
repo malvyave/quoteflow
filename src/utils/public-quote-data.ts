@@ -3,7 +3,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { DEFAULT_WON_STAGE } from 'src/constants/universal-identifiers';
 import { QuoteStatus } from 'src/objects/quote.object';
 import { type PublicQuote } from 'src/utils/public-quote-page';
-import { toQuoteReference } from 'src/utils/quote-details';
+import { toQuoteClient, toQuoteReference } from 'src/utils/quote-details';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
 
 // Typed by hand so this compiles before the app's client has been generated.
@@ -43,7 +43,7 @@ export const findQuoteByPublicToken = async (
           terms: true,
           number: true,
           total: { amountMicros: true },
-          opportunity: { id: true, companyId: true },
+          opportunity: { id: true, companyId: true, pointOfContactId: true },
         },
       },
     },
@@ -55,13 +55,12 @@ export const findQuoteByPublicToken = async (
     return null;
   }
 
-  // Line items and the company are separate queries: relations nested two levels deep come back empty.
+  // Line items, the company and the contact are separate queries: relations nested two levels
+  // deep come back empty.
   const companyId = quote.opportunity?.companyId;
-  const sellerPromise = loadQuoteSeller({
-    sellerName: process.env.SELLER_NAME,
-    sellerLogoUrl: process.env.SELLER_LOGO_URL,
-  });
-  const { quoteLineItems, company } = await client.query({
+  const contactId = quote.opportunity?.pointOfContactId;
+  const sellerPromise = loadQuoteSeller((key) => process.env[key]);
+  const { quoteLineItems, company, person } = await client.query({
     quoteLineItems: {
       __args: {
         filter: { quoteId: { eq: quote.id } },
@@ -72,7 +71,29 @@ export const findQuoteByPublicToken = async (
       },
     },
     ...(companyId
-      ? { company: { __args: { filter: { id: { eq: companyId } } }, name: true } }
+      ? {
+          company: {
+            __args: { filter: { id: { eq: companyId } } },
+            name: true,
+            address: {
+              addressStreet1: true,
+              addressStreet2: true,
+              addressCity: true,
+              addressState: true,
+              addressPostcode: true,
+              addressCountry: true,
+            },
+          },
+        }
+      : {}),
+    ...(contactId
+      ? {
+          person: {
+            __args: { filter: { id: { eq: contactId } } },
+            name: { firstName: true, lastName: true },
+            emails: { primaryEmail: true },
+          },
+        }
       : {}),
   });
 
@@ -91,7 +112,7 @@ export const findQuoteByPublicToken = async (
     expiresAt: quote.expiresAt ?? null,
     message: quote.message ?? null,
     terms: quote.terms ?? null,
-    companyName: company?.name ?? null,
+    client: toQuoteClient(company, person),
     seller: await sellerPromise,
     lineItems: (quoteLineItems?.edges ?? []).map(({ node }: { node: LineItemNode }) => ({
       name: node.name ?? '',
