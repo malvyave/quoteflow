@@ -134,9 +134,11 @@ const STYLES = `
   .totals-line.total { background: var(--soft); margin-top: 8px; padding: 12px 16px; border-radius: 8px;
     font-weight: 700; font-size: 16px; }
 
-  .payment { margin-bottom: 32px; line-height: 1.6; }
-  .payment h3, .terms h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
-  .payment p { margin: 0; }
+  .payment { margin-bottom: 40px; line-height: 1.6; }
+  .payment h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+  .payment-body p { margin: 0 0 4px; }
+  .payment-body p:last-child { margin-bottom: 0; }
+  .terms h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
 
   .actions { display: flex; justify-content: flex-end; margin-bottom: 32px; }
   button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 12px 24px;
@@ -187,8 +189,11 @@ const STYLES = `
     main { padding: 14mm 16mm; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
     .invoice-card { max-width: none; box-shadow: none; border-radius: 0; padding: 0; }
     /* Tighter vertical rhythm than on screen, so a typical quote fits on one page. */
-    .invoice-header { margin-bottom: 28px; }
-    .bill-to { margin-bottom: 24px; }
+    .invoice-header { margin-bottom: 24px; }
+    .title-area h1 { font-size: 44px; }
+    .bill-to { margin-bottom: 20px; line-height: 1.5; }
+    .totals-line { padding: 3px 0; }
+    .payment { line-height: 1.45; }
     .intro { margin-bottom: 16px; }
     .table-wrapper { margin-bottom: 16px; }
     .table-row { padding-top: 12px; padding-bottom: 12px; }
@@ -251,9 +256,9 @@ const renderDates = (quote: PublicQuote) => `<div class="date-issued">
           <p><span>Valid Until</span><span class="value">: ${escapeHtml(quote.expiresAt ? formatDate(quote.expiresAt) : 'No expiry')}</span></p>
         </div>`;
 
-const splitLines = (text: string | null | undefined) =>
+const splitLines = (text: string | null | undefined, separator: RegExp = /\n/) =>
   (text ?? '')
-    .split('\n')
+    .split(separator)
     .map((line) => line.trim())
     .filter(Boolean);
 
@@ -347,7 +352,8 @@ export const renderQuotePage = ({
           .join('');
 
   const message = quote.message?.trim();
-  const paymentLines = splitLines(quote.seller.paymentInstructions);
+  // The setting is a single-line field, so "|" also starts a new line.
+  const paymentLines = splitLines(quote.seller.paymentInstructions, /\n|\|/);
 
   // The document title becomes the default PDF file name.
   return renderDocument(
@@ -389,7 +395,7 @@ export const renderQuotePage = ({
       </div>
       ${
         paymentLines.length > 0
-          ? `<section class="payment"><h3>Payment Instructions</h3>${paymentLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}</section>`
+          ? `<section class="payment"><h3>Payment Instructions</h3><div class="payment-body">${paymentLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}</div></section>`
           : ''
       }
       ${renderOutcome({ quote, acceptActionUrl, isExpired, isPreview })}

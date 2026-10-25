@@ -97,7 +97,7 @@ export default defineApplication({
       universalIdentifier: PAYMENT_INSTRUCTIONS_VARIABLE_UNIVERSAL_IDENTIFIER,
       label: 'Payment instructions',
       description:
-        'Optional. How to pay, for example bank or UPI details. Shown under the terms on every quote.',
+        'Optional. How to pay, for example bank or UPI details, shown on every quote. Use | to start a new line.',
       value: '',
       isSecret: false,
     },

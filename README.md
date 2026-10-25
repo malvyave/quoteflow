@@ -44,7 +44,7 @@ Find these under **Settings → Apps → QuoteFlow → Variables**.
 | Seller logo URL | A public `https://` link to your logo. Leave empty to use your workspace logo, if you have one. |
 | Seller address, email, phone, website | Contact details in the quote footer. Separate address lines with commas. |
 | Tax ID | Your tax registration, for example a GSTIN or VAT number. |
-| Payment instructions | Optional bank or UPI details shown under the terms. |
+| Payment instructions | Optional bank or UPI details. A vertical bar (`\|`) starts a new line, for example `HDFC Bank \| A/C 50100123456789 \| IFSC HDFC0001234`. |
 | Brand color | Accent color as a hex code, for example `#1961ED`. |
 | Default message, Default terms | What new quotes start with. Each quote can still be changed. |
 

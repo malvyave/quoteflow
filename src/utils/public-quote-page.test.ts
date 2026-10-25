@@ -248,7 +248,20 @@ describe('renderQuotePage details', () => {
     expect(html).toContain('<span class="icon" aria-hidden="true">✉</span>hello@northwind.test');
     expect(html).toContain('<span class="icon" aria-hidden="true">⌂</span>12 MG Road, Bengaluru 560001');
     expect(html).toContain('<span class="icon" aria-hidden="true">#</span>GSTIN 29ABCDE1234F1Z5');
-    expect(html).toContain('<h3>Payment Instructions</h3><p>UPI: northwind@bank</p>');
+    expect(html).toContain('<h3>Payment Instructions</h3><div class="payment-body"><p>UPI: northwind@bank</p></div>');
+  });
+
+  it('breaks payment instructions into lines at | or a newline', () => {
+    const html = renderQuotePage({
+      quote: quote({
+        seller: { ...EMPTY_SELLER, paymentInstructions: 'HDFC Bank | A/C 501001\nIFSC HDFC0001234 |' },
+      }),
+      acceptActionUrl: './abc/accept',
+    });
+
+    expect(html).toContain(
+      '<div class="payment-body"><p>HDFC Bank</p><p>A/C 501001</p><p>IFSC HDFC0001234</p></div>',
+    );
   });
 
   it('escapes the client and seller details', () => {
