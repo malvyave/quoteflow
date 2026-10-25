@@ -165,7 +165,7 @@ describe('the public quote page', () => {
     expect(status).toBe(200);
     expect(html).toContain('Homepage redesign');
     expect(html).toContain('$6,903.00');
-    expect(html).toContain('Valid until January 31, 2099');
+    expect(html).toContain('<dt>Valid until</dt><dd>January 31, 2099</dd>');
     expect(html).toContain('Thanks for your time!');
     expect(html).toContain('Net 30.');
     expect(html).toContain('Accept quote');
