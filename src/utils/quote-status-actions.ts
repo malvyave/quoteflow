@@ -3,8 +3,8 @@ import { Response, type RoutePayload } from 'twenty-sdk/logic-function';
 
 import { QuoteStatus } from 'src/objects/quote.object';
 import { generatePublicToken } from 'src/utils/public-quote-token';
-import { canSendAnotherQuote, FREE_ACTIVE_QUOTE_LIMIT } from 'src/utils/billing';
-import { countActiveQuotes, getBillingConfig, getEntitlement } from 'src/utils/billing-server';
+import { canSendAnotherQuote, trialOverMessage } from 'src/utils/billing';
+import { getBillingConfig, getPlanStatus } from 'src/utils/billing-server';
 import { logQuoteActivity } from 'src/utils/quote-activity';
 import { isQuoteExpired, toQuoteReference } from 'src/utils/quote-details';
 
@@ -127,18 +127,11 @@ const sendLoadedQuote = async (quote: QuoteForAction): Promise<number> => {
   }
 
   if (getBillingConfig().enabled) {
-    const plan = {
-      billingEnabled: true,
-      isPaid: (await getEntitlement()).isPaid,
-      activeQuoteCount: await countActiveQuotes(),
-      freeLimit: FREE_ACTIVE_QUOTE_LIMIT,
-    };
+    const plan = await getPlanStatus();
 
+    // 402 Payment Required: the Quote tab offers the plans.
     if (!canSendAnotherQuote(plan)) {
-      throw new QuoteActionError(
-        `The free plan allows ${FREE_ACTIVE_QUOTE_LIMIT} active quotes. Upgrade to send more, or withdraw a sent quote.`,
-        402,
-      );
+      throw new QuoteActionError(trialOverMessage(plan.trial), 402);
     }
   }
 

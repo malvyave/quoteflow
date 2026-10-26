@@ -2,12 +2,13 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { kv } from 'twenty-sdk/logic-function';
 
-import { QuoteStatus } from 'src/objects/quote.object';
 import {
-  countsAsActiveQuote,
   createDodoClient,
-  FREE_ACTIVE_QUOTE_LIMIT,
+  getTrialStatus,
+  LIFETIME_SEAT_LIMIT,
+  TRIAL_QUOTE_LIMIT,
   toDodoMode,
+  type Plan,
   type PlanStatus,
 } from 'src/utils/billing';
 
@@ -16,28 +17,41 @@ import {
 // no limit.
 //
 // Each workspace gets one Dodo customer, created at its first upgrade and tagged with the
-// workspace id. The link is kept in the app key-value store; paid status is read from that
-// customer's subscriptions.
+// workspace id. The link is kept in the app key-value store; the plan is read from that
+// customer's subscriptions (Monthly, Annual) or one-time payments (Lifetime).
 
 const CUSTOMER_KEY = 'billing:customer';
 const ENTITLEMENT_CACHE_KEY = 'billing:entitlement';
+const TRIAL_STARTED_KEY = 'billing:trial-started-at';
+const LIFETIME_SOLD_KEY = 'billing:lifetime-sold';
 const PAID_CACHE_MS = 60 * 60 * 1000;
 // Short, so a workspace that just paid is unblocked within a minute.
 const UNPAID_CACHE_MS = 60 * 1000;
-const ACTIVE_QUOTE_COUNT_CAP = 200;
+const LIFETIME_SOLD_CACHE_MS = 60 * 60 * 1000;
 
 type StoredCustomer = { customerId: string };
-type CachedEntitlement = { isPaid: boolean; customerId: string | null; checkedAt: number };
+type CachedEntitlement = {
+  isPaid: boolean;
+  plan: Plan | null;
+  customerId: string | null;
+  checkedAt: number;
+};
 
 export const getBillingConfig = () => {
   const apiKey = process.env.DODO_API_KEY?.trim() ?? '';
-
-  return {
-    enabled: apiKey !== '',
-    apiKey,
-    productId: process.env.DODO_PRODUCT_ID?.trim() ?? '',
-    mode: toDodoMode(process.env.DODO_MODE),
+  const productIds: Record<Plan, string> = {
+    monthly: process.env.DODO_MONTHLY_PRODUCT_ID?.trim() ?? '',
+    annual: process.env.DODO_ANNUAL_PRODUCT_ID?.trim() ?? '',
+    lifetime: process.env.DODO_LIFETIME_PRODUCT_ID?.trim() ?? '',
   };
+
+  return { enabled: apiKey !== '', apiKey, productIds, mode: toDodoMode(process.env.DODO_MODE) };
+};
+
+const planForProduct = (productId: string | null): Plan | null => {
+  const { productIds } = getBillingConfig();
+
+  return (Object.keys(productIds) as Plan[]).find((plan) => productIds[plan] === productId) ?? null;
 };
 
 export const getDodo = () => {
@@ -112,51 +126,120 @@ export const getEntitlement = async ({ refresh = false } = {}): Promise<CachedEn
 
   try {
     const customerId = await getStoredCustomerId();
-    const isPaid = customerId
-      ? await getDodo().hasPayingSubscription({
-          customerId,
-          productId: getBillingConfig().productId || undefined,
-        })
-      : false;
-    const entitlement = { isPaid, customerId, checkedAt: Date.now() };
+    const plan = customerId ? await findCustomerPlan(customerId) : null;
+    const entitlement = { isPaid: plan !== null, plan, customerId, checkedAt: Date.now() };
 
     await kv.set(ENTITLEMENT_CACHE_KEY, entitlement);
 
     return entitlement;
   } catch (error) {
-    console.warn('Could not check the QuoteFlow subscription; allowing this request.', error);
+    console.warn('Could not check the QuoteFlow plan; allowing this request.', error);
 
-    return { isPaid: true, customerId: null, checkedAt: Date.now() };
+    return { isPaid: true, plan: null, customerId: null, checkedAt: Date.now() };
   }
 };
 
-// Typed by hand so this compiles before the app's client has been generated.
-type ActiveQuoteNode = { status?: string | null; expiresAt?: string | null };
+const findCustomerPlan = async (customerId: string): Promise<Plan | null> => {
+  const { productIds } = getBillingConfig();
+  const dodo = getDodo();
+  const subscriptionProducts = [productIds.monthly, productIds.annual].filter(Boolean);
 
-// Runs as the app so every member's quotes count toward the workspace limit.
-export const countActiveQuotes = async () => {
+  if (subscriptionProducts.length > 0) {
+    const product = await dodo.findPayingSubscriptionProduct({ customerId, productIds: subscriptionProducts });
+
+    if (product) {
+      return planForProduct(product);
+    }
+  }
+
+  if (productIds.lifetime) {
+    const paid = await dodo.countSucceededPayments({ productId: productIds.lifetime, customerId, cap: 1 });
+
+    if (paid > 0) {
+      return 'lifetime';
+    }
+  }
+
+  return null;
+};
+
+// Lifetime is limited to the first 75 workspaces across every install. The count is cached for an
+// hour; if it cannot be read, Lifetime stays on offer rather than disappearing.
+export const isLifetimeAvailable = async () => {
+  const { productIds } = getBillingConfig();
+
+  if (!productIds.lifetime) {
+    return false;
+  }
+
+  const cached = await kv.get<{ sold: number; checkedAt: number }>(LIFETIME_SOLD_KEY);
+
+  if (cached && Date.now() - cached.checkedAt < LIFETIME_SOLD_CACHE_MS) {
+    return cached.sold < LIFETIME_SEAT_LIMIT;
+  }
+
+  try {
+    const sold = await getDodo().countSucceededPayments({
+      productId: productIds.lifetime,
+      cap: LIFETIME_SEAT_LIMIT,
+    });
+
+    await kv.set(LIFETIME_SOLD_KEY, { sold, checkedAt: Date.now() });
+
+    return sold < LIFETIME_SEAT_LIMIT;
+  } catch (error) {
+    console.warn('Could not count Lifetime sales.', error);
+
+    return true;
+  }
+};
+
+// The trial clock starts the first time the workspace uses QuoteFlow with billing on.
+const getTrialStartedAt = async () => {
+  const stored = await kv.get<string>(TRIAL_STARTED_KEY);
+
+  if (stored) {
+    return stored;
+  }
+
+  const now = new Date().toISOString();
+
+  await kv.set(TRIAL_STARTED_KEY, now);
+
+  return now;
+};
+
+// Quotes ever sent in the workspace: every sent quote gets a number, and keeps it when withdrawn.
+// Runs as the app so every member's quotes count toward the trial.
+export const countSentQuotes = async () => {
   const { quotes } = await new CoreApiClient({ runAs: 'application' }).query({
     quotes: {
-      __args: { filter: { status: { eq: QuoteStatus.SENT } }, first: ACTIVE_QUOTE_COUNT_CAP },
-      edges: { node: { status: true, expiresAt: true } },
+      __args: { filter: { number: { is: 'NOT_NULL' } }, first: TRIAL_QUOTE_LIMIT + 1 },
+      edges: { node: { id: true } },
     },
   });
-  const now = new Date();
 
-  return (quotes?.edges ?? []).filter(({ node }: { node: ActiveQuoteNode }) =>
-    countsAsActiveQuote({ status: node.status ?? null, expiresAt: node.expiresAt ?? null }, now),
-  ).length;
+  return quotes?.edges.length ?? 0;
 };
 
 export const getPlanStatus = async (): Promise<PlanStatus> => {
-  const { enabled } = getBillingConfig();
-  const activeQuoteCount = await countActiveQuotes();
+  if (!getBillingConfig().enabled) {
+    return { billingEnabled: false, isPaid: true, plan: null, trial: null, isLifetimeAvailable: false };
+  }
+
+  const entitlement = await getEntitlement();
+  const trial = getTrialStatus({
+    startedAt: await getTrialStartedAt(),
+    quotesUsed: await countSentQuotes(),
+    now: new Date(),
+  });
 
   return {
-    billingEnabled: enabled,
-    isPaid: enabled ? (await getEntitlement()).isPaid : true,
-    activeQuoteCount,
-    freeLimit: FREE_ACTIVE_QUOTE_LIMIT,
+    billingEnabled: true,
+    isPaid: entitlement.isPaid,
+    plan: entitlement.plan,
+    trial,
+    isLifetimeAvailable: entitlement.isPaid ? false : await isLifetimeAvailable(),
   };
 };
 

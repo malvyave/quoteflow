@@ -1,56 +1,85 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { QuoteStatus } from 'src/objects/quote.object';
 import {
   canSendAnotherQuote,
-  countsAsActiveQuote,
   createDodoClient,
   DodoError,
-  FREE_ACTIVE_QUOTE_LIMIT,
+  getTrialStatus,
   isPayingSubscriptionStatus,
+  isPlan,
+  TRIAL_QUOTE_LIMIT,
   toDodoMode,
+  trialOverMessage,
+  type PlanStatus,
 } from 'src/utils/billing';
 
 const WORKSPACE_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
 const now = new Date('2026-10-18T12:00:00.000Z');
 
-describe('countsAsActiveQuote', () => {
-  it('counts sent quotes that have not expired', () => {
-    expect(countsAsActiveQuote({ status: QuoteStatus.SENT, expiresAt: null }, now)).toBe(true);
-    expect(countsAsActiveQuote({ status: QuoteStatus.SENT, expiresAt: '2026-10-18' }, now)).toBe(
-      true,
-    );
+describe('getTrialStatus', () => {
+  const startedAt = '2026-10-10T12:00:00.000Z';
+
+  it('runs 14 days from the start, counting down whole days', () => {
+    const trial = getTrialStatus({ startedAt, quotesUsed: 3, now });
+
+    expect(trial.endsAt).toBe('2026-10-24T12:00:00.000Z');
+    expect(trial.daysLeft).toBe(6);
+    expect(trial.quotesUsed).toBe(3);
+    expect(trial.quoteLimit).toBe(TRIAL_QUOTE_LIMIT);
+    expect(trial.isOver).toBe(false);
   });
 
-  it('ignores expired, draft, accepted and superseded quotes', () => {
-    expect(countsAsActiveQuote({ status: QuoteStatus.SENT, expiresAt: '2026-10-17' }, now)).toBe(
-      false,
-    );
+  it('ends after 14 days', () => {
+    const trial = getTrialStatus({ startedAt, quotesUsed: 0, now: new Date('2026-10-24T12:00:01.000Z') });
 
-    for (const status of [QuoteStatus.DRAFT, QuoteStatus.ACCEPTED, QuoteStatus.SUPERSEDED]) {
-      expect(countsAsActiveQuote({ status, expiresAt: null }, now)).toBe(false);
-    }
+    expect(trial.daysLeft).toBe(0);
+    expect(trial.isOver).toBe(true);
+  });
+
+  it('ends once 10 quotes have been sent, even with days left', () => {
+    expect(getTrialStatus({ startedAt, quotesUsed: 9, now }).isOver).toBe(false);
+    expect(getTrialStatus({ startedAt, quotesUsed: 10, now }).isOver).toBe(true);
   });
 });
 
 describe('canSendAnotherQuote', () => {
-  const plan = {
+  const status = (overrides: Partial<PlanStatus>): PlanStatus => ({
     billingEnabled: true,
     isPaid: false,
-    activeQuoteCount: 0,
-    freeLimit: FREE_ACTIVE_QUOTE_LIMIT,
-  };
+    plan: null,
+    trial: getTrialStatus({ startedAt: '2026-10-10T12:00:00.000Z', quotesUsed: 0, now }),
+    isLifetimeAvailable: true,
+    ...overrides,
+  });
+  const over = getTrialStatus({ startedAt: '2026-10-10T12:00:00.000Z', quotesUsed: 10, now });
 
-  it('allows up to the free limit, then blocks', () => {
-    expect(canSendAnotherQuote({ ...plan, activeQuoteCount: 4 })).toBe(true);
-    expect(canSendAnotherQuote({ ...plan, activeQuoteCount: 5 })).toBe(false);
+  it('allows sending during the trial and blocks it after', () => {
+    expect(canSendAnotherQuote(status({}))).toBe(true);
+    expect(canSendAnotherQuote(status({ trial: over }))).toBe(false);
   });
 
-  it('never blocks paid workspaces or installs without billing', () => {
-    expect(canSendAnotherQuote({ ...plan, activeQuoteCount: 50, isPaid: true })).toBe(true);
-    expect(canSendAnotherQuote({ ...plan, activeQuoteCount: 50, billingEnabled: false })).toBe(
-      true,
-    );
+  it('never blocks a paid workspace or an install without billing', () => {
+    expect(canSendAnotherQuote(status({ trial: over, isPaid: true, plan: 'annual' }))).toBe(true);
+    expect(canSendAnotherQuote(status({ trial: over, billingEnabled: false }))).toBe(true);
+  });
+});
+
+describe('trialOverMessage', () => {
+  it('says which limit was reached', () => {
+    expect(
+      trialOverMessage(getTrialStatus({ startedAt: '2026-10-10T12:00:00.000Z', quotesUsed: 10, now })),
+    ).toContain('includes 10 quotes');
+    expect(
+      trialOverMessage(getTrialStatus({ startedAt: '2026-09-01T12:00:00.000Z', quotesUsed: 2, now })),
+    ).toBe('Your free trial has ended. Choose a plan to keep sending quotes.');
+  });
+});
+
+describe('isPlan', () => {
+  it('accepts only the three plans', () => {
+    expect(['monthly', 'annual', 'lifetime'].every(isPlan)).toBe(true);
+    expect(isPlan('free')).toBe(false);
+    expect(isPlan(undefined)).toBe(false);
   });
 });
 
@@ -95,11 +124,13 @@ describe('createDodoClient', () => {
     const test = recordingFetch([jsonResponse(200, { items: [] })]);
     const live = recordingFetch([jsonResponse(200, { items: [] })]);
 
-    await createDodoClient({ apiKey: 'k', mode: 'test', fetchImpl: test.fetchImpl }).hasPayingSubscription({
+    await createDodoClient({ apiKey: 'k', mode: 'test', fetchImpl: test.fetchImpl }).findPayingSubscriptionProduct({
       customerId: 'cus_1',
+      productIds: ['pdt_monthly'],
     });
-    await createDodoClient({ apiKey: 'k', mode: 'live', fetchImpl: live.fetchImpl }).hasPayingSubscription({
+    await createDodoClient({ apiKey: 'k', mode: 'live', fetchImpl: live.fetchImpl }).findPayingSubscriptionProduct({
       customerId: 'cus_1',
+      productIds: ['pdt_monthly'],
     });
 
     expect(test.calls[0][0]).toMatch(/^https:\/\/test\.dodopayments\.com\/subscriptions\?/);
@@ -149,10 +180,10 @@ describe('createDodoClient', () => {
     expect(calls).toHaveLength(1);
   });
 
-  it('reports a paying subscription only for the configured product', async () => {
+  it('finds which of the plan products the customer pays for', async () => {
     const subscriptions = {
       items: [
-        { subscription_id: 'sub_old', status: 'cancelled', product_id: 'pdt_quoteflow' },
+        { subscription_id: 'sub_old', status: 'cancelled', product_id: 'pdt_monthly' },
         { subscription_id: 'sub_other', status: 'active', product_id: 'pdt_something_else' },
       ],
     };
@@ -162,15 +193,47 @@ describe('createDodoClient', () => {
         mode: 'test',
         fetchImpl: recordingFetch([jsonResponse(200, payload)]).fetchImpl,
       });
+    const productIds = ['pdt_monthly', 'pdt_annual'];
 
     await expect(
-      dodo(subscriptions).hasPayingSubscription({ customerId: 'cus_1', productId: 'pdt_quoteflow' }),
-    ).resolves.toBe(false);
+      dodo(subscriptions).findPayingSubscriptionProduct({ customerId: 'cus_1', productIds }),
+    ).resolves.toBeNull();
     await expect(
       dodo({
-        items: [...subscriptions.items, { subscription_id: 'sub_1', status: 'active', product_id: 'pdt_quoteflow' }],
-      }).hasPayingSubscription({ customerId: 'cus_1', productId: 'pdt_quoteflow' }),
-    ).resolves.toBe(true);
+        items: [...subscriptions.items, { subscription_id: 'sub_1', status: 'past_due', product_id: 'pdt_annual' }],
+      }).findPayingSubscriptionProduct({ customerId: 'cus_1', productIds }),
+    ).resolves.toBe('pdt_annual');
+  });
+
+  it('counts succeeded one-time payments for a product, leaving out refunds', async () => {
+    const { calls, fetchImpl } = recordingFetch([
+      jsonResponse(200, {
+        items: [
+          { payment_id: 'pay_1', status: 'succeeded', refund_status: null },
+          { payment_id: 'pay_2', status: 'succeeded', refund_status: 'succeeded' },
+          { payment_id: 'pay_3', status: 'succeeded' },
+        ],
+      }),
+    ]);
+    const dodo = createDodoClient({ apiKey: 'k', mode: 'test', fetchImpl });
+
+    await expect(
+      dodo.countSucceededPayments({ productId: 'pdt_lifetime', customerId: 'cus_1', cap: 75 }),
+    ).resolves.toBe(2);
+    expect(calls[0][0]).toContain('/payments?');
+    expect(calls[0][0]).toContain('product_id=pdt_lifetime');
+    expect(calls[0][0]).toContain('status=succeeded');
+    expect(calls[0][0]).toContain('customer_id=cus_1');
+  });
+
+  it('pages through payments and stops at the cap', async () => {
+    const page = Array.from({ length: 100 }, (_, index) => ({ payment_id: `pay_${index}`, status: 'succeeded' }));
+    const { calls, fetchImpl } = recordingFetch([jsonResponse(200, { items: page }), jsonResponse(200, { items: page })]);
+    const dodo = createDodoClient({ apiKey: 'k', mode: 'test', fetchImpl });
+
+    await expect(dodo.countSucceededPayments({ productId: 'pdt_lifetime', cap: 75 })).resolves.toBe(75);
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).not.toContain('customer_id');
   });
 
   it('creates a checkout for the existing customer, tagged with the workspace', async () => {
@@ -181,7 +244,7 @@ describe('createDodoClient', () => {
 
     await expect(
       dodo.createCheckout({
-        productId: 'pdt_quoteflow',
+        productId: 'pdt_monthly',
         customerId: 'cus_1',
         workspaceId: WORKSPACE_ID,
         returnUrl: 'https://app.test/s/billing/done',
@@ -189,7 +252,7 @@ describe('createDodoClient', () => {
     ).resolves.toBe('https://checkout.dodopayments.com/s/1');
     expect(calls[0][0]).toBe('https://test.dodopayments.com/checkouts');
     expect(bodyOf(calls[0])).toEqual({
-      product_cart: [{ product_id: 'pdt_quoteflow', quantity: 1 }],
+      product_cart: [{ product_id: 'pdt_monthly', quantity: 1 }],
       customer: { customer_id: 'cus_1' },
       metadata: { workspace_id: WORKSPACE_ID },
       return_url: 'https://app.test/s/billing/done',
@@ -214,7 +277,7 @@ describe('createDodoClient', () => {
       mode: 'test',
       fetchImpl: recordingFetch([jsonResponse(401, { message: 'Invalid API key' })]).fetchImpl,
     });
-    const attempt = dodo.hasPayingSubscription({ customerId: 'cus_1' });
+    const attempt = dodo.findPayingSubscriptionProduct({ customerId: 'cus_1', productIds: ['pdt_monthly'] });
 
     await expect(attempt).rejects.toBeInstanceOf(DodoError);
     await expect(attempt).rejects.toThrow('Invalid API key');

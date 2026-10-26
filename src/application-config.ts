@@ -131,11 +131,20 @@ export default defineApplication({
   serverVariables: {
     DODO_API_KEY: {
       description:
-        'Dodo Payments API key. Turns on the free plan limit and paid upgrades. Needs write access to Customers, Subscriptions and Checkout.',
+        'Dodo Payments API key. Turns on the free trial and paid plans. Needs read and write access to Customers, Subscriptions, Payments and Checkout.',
       isSecret: true,
     },
-    DODO_PRODUCT_ID: {
-      description: 'Dodo Payments product ID (pdt_…) of the monthly QuoteFlow subscription.',
+    DODO_MONTHLY_PRODUCT_ID: {
+      description: 'Dodo Payments product ID (pdt_…) of the Monthly plan: a $12 per month subscription.',
+      isSecret: false,
+    },
+    DODO_ANNUAL_PRODUCT_ID: {
+      description: 'Dodo Payments product ID (pdt_…) of the Annual plan: a $108 per year subscription.',
+      isSecret: false,
+    },
+    DODO_LIFETIME_PRODUCT_ID: {
+      description:
+        'Dodo Payments product ID (pdt_…) of the Lifetime plan: a $139 one-time payment, limited to 75 workspaces.',
       isSecret: false,
     },
     DODO_MODE: {

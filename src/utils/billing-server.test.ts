@@ -14,7 +14,7 @@ vi.mock('twenty-sdk/logic-function', () => ({
   },
 }));
 
-const { getEntitlement } = await import('src/utils/billing-server');
+const { getEntitlement, isLifetimeAvailable } = await import('src/utils/billing-server');
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
@@ -26,14 +26,18 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
   process.env.DODO_API_KEY = 'test-key';
-  process.env.DODO_PRODUCT_ID = 'pdt_quoteflow';
+  process.env.DODO_MONTHLY_PRODUCT_ID = 'pdt_monthly';
+  process.env.DODO_ANNUAL_PRODUCT_ID = 'pdt_annual';
+  process.env.DODO_LIFETIME_PRODUCT_ID = 'pdt_lifetime';
   process.env.DODO_MODE = 'test';
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.DODO_API_KEY;
-  delete process.env.DODO_PRODUCT_ID;
+  delete process.env.DODO_MONTHLY_PRODUCT_ID;
+  delete process.env.DODO_ANNUAL_PRODUCT_ID;
+  delete process.env.DODO_LIFETIME_PRODUCT_ID;
   delete process.env.DODO_MODE;
 });
 
@@ -47,14 +51,32 @@ describe('getEntitlement', () => {
     store.set('billing:customer', { customerId: 'cus_1' });
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
-        items: [{ subscription_id: 'sub_1', status: 'active', product_id: 'pdt_quoteflow' }],
+        items: [{ subscription_id: 'sub_1', status: 'active', product_id: 'pdt_monthly' }],
       }),
     );
 
-    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true, customerId: 'cus_1' });
-    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true });
+    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true, plan: 'monthly', customerId: 'cus_1' });
+    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true, plan: 'monthly' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toContain('customer_id=cus_1');
+  });
+
+  it('recognises a Lifetime purchase from a one-time payment', async () => {
+    store.set('billing:customer', { customerId: 'cus_1' });
+    fetchMock.mockImplementation(async (url) =>
+      String(url).includes('/payments')
+        ? jsonResponse(200, { items: [{ payment_id: 'pay_1', status: 'succeeded' }] })
+        : jsonResponse(200, { items: [] }),
+    );
+
+    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true, plan: 'lifetime' });
+  });
+
+  it('treats a customer with no subscription or payment as unpaid', async () => {
+    store.set('billing:customer', { customerId: 'cus_1' });
+    fetchMock.mockImplementation(async () => jsonResponse(200, { items: [] }));
+
+    await expect(getEntitlement()).resolves.toMatchObject({ isPaid: false, plan: null });
   });
 
   it('rechecks an unpaid workspace once the short cache has expired', async () => {
@@ -66,7 +88,7 @@ describe('getEntitlement', () => {
     });
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
-        items: [{ subscription_id: 'sub_1', status: 'active', product_id: 'pdt_quoteflow' }],
+        items: [{ subscription_id: 'sub_1', status: 'active', product_id: 'pdt_monthly' }],
       }),
     );
 
@@ -88,5 +110,35 @@ describe('getEntitlement', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await expect(getEntitlement()).resolves.toMatchObject({ isPaid: true });
+  });
+});
+
+describe('isLifetimeAvailable', () => {
+  const lifetimeSales = (count: number) =>
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        items: Array.from({ length: count }, (_, index) => ({ payment_id: `pay_${index}`, status: 'succeeded' })),
+      }),
+    );
+
+  it('is available while fewer than 75 workspaces have bought it, and caches the count', async () => {
+    lifetimeSales(74);
+
+    await expect(isLifetimeAvailable()).resolves.toBe(true);
+    await expect(isLifetimeAvailable()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('is sold out at 75', async () => {
+    lifetimeSales(75);
+
+    await expect(isLifetimeAvailable()).resolves.toBe(false);
+  });
+
+  it('is not offered without a Lifetime product', async () => {
+    delete process.env.DODO_LIFETIME_PRODUCT_ID;
+
+    await expect(isLifetimeAvailable()).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

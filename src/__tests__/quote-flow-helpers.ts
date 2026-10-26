@@ -302,8 +302,12 @@ export const setServerVariable = async (key: string, value: string | null) => {
   }
 };
 
-export const callAppRoute = async (method: 'GET' | 'POST', path: string) => {
-  const response = await fetch(`${apiUrl()}/s${path}`, { method, headers: authHeaders() });
+export const callAppRoute = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
+  const response = await fetch(`${apiUrl()}/s${path}`, {
+    method,
+    headers: authHeaders(),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 
   return { status: response.status, body: await response.text() };
 };

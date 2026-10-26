@@ -15,7 +15,7 @@ Scope from the design doc v3:
 - Two-step flow (Edit → Review & share) with a live preview of the client page beside the editor (design doc v4).
 - Seller name and logo on the quote (workspace name, or the Seller name / Seller logo URL settings).
 - Sequential quote numbers (Q-0001), assigned when a quote is first sent.
-- Paid plan through Dodo Payments (merchant of record); free plan allows 5 active quotes.
+- Plans through Dodo Payments (merchant of record): 14-day trial with up to 10 quotes sent, then Monthly ($12), Annual ($108/year) or Lifetime ($139 once, first 75 workspaces).
 
 Decisions:
 

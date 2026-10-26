@@ -48,6 +48,7 @@ import {
 } from 'src/utils/quote-api';
 import { EMPTY_SELLER, type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { PLANS, trialOverMessage, type Plan } from 'src/utils/billing';
 import { buildCurrencyOptions } from 'src/utils/currencies';
 import { addDays, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
 import { buildQuoteEmail, toMailtoUrl, toPlainEmail, type QuoteEmail } from 'src/utils/quote-email';
@@ -144,6 +145,7 @@ const QuoteEditor = () => {
     null,
   );
   const [isOpeningBilling, setIsOpeningBilling] = useState(false);
+  const [isChoosingPlan, setIsChoosingPlan] = useState(false);
   // Changes the member makes to the suggested email; never saved.
   const [emailEdits, setEmailEdits] = useState<Partial<QuoteEmail>>({});
 
@@ -486,11 +488,12 @@ const QuoteEditor = () => {
 
   // Opening a new tab needs a direct click on a link, so this fetches the billing URL first and
   // then shows a button that links to it.
-  const openBilling = async () => {
+  const openBilling = async (chosenPlan?: Plan) => {
     setIsOpeningBilling(true);
 
     try {
-      setBillingUrl(await startUpgrade());
+      setBillingUrl(await startUpgrade(chosenPlan));
+      setIsChoosingPlan(false);
     } catch (error) {
       enqueueSnackbar({ message: getErrorMessage(error), variant: 'error' });
     } finally {
@@ -636,48 +639,110 @@ const QuoteEditor = () => {
     </nav>
   );
 
+  const planSummary = (status: PlanStatus) => {
+    if (status.isPaid) {
+      return status.plan ? `${PLANS[status.plan].label} plan · unlimited quotes` : 'Paid plan · unlimited quotes';
+    }
+
+    if (!status.trial || status.trial.isOver) {
+      return trialOverMessage(status.trial);
+    }
+
+    const { daysLeft, quotesUsed, quoteLimit } = status.trial;
+
+    return `Free trial · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left · ${Math.min(quotesUsed, quoteLimit)} of ${quoteLimit} quotes sent`;
+  };
+
+  const offeredPlans = plan
+    ? (Object.keys(PLANS) as Plan[]).filter((option) => option !== 'lifetime' || plan.isLifetimeAvailable)
+    : [];
+
   const planBar = plan?.billingEnabled ? (
     <div
       style={{
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: 'column',
         gap: theme.spacing[2],
-        flexWrap: 'wrap',
         padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
         border: `1px solid ${theme.border.color.light}`,
         borderRadius: theme.border.radius.md,
       }}
     >
-      <span style={styles.muted}>
-        {plan.isPaid
-          ? 'QuoteFlow paid plan · unlimited quotes'
-          : `Free plan · ${Math.min(plan.activeQuoteCount, plan.freeLimit)} of ${plan.freeLimit} active quotes`}
-      </span>
-      {billingUrl ? (
-        <Button
-          variant="solid"
-          color="accent"
-          size="sm"
-          startIcon={<IconExternalLink size={theme.icon.size.sm} />}
-          href={billingUrl.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => setBillingUrl(null)}
-        >
-          {billingUrl.kind === 'portal' ? 'Open billing portal' : 'Continue to checkout'}
-        </Button>
-      ) : (
-        <Button
-          variant={plan.isPaid ? 'ghost' : 'outline'}
-          color="neutral"
-          size="sm"
-          loading={isOpeningBilling}
-          disabled={isOpeningBilling}
-          onClick={openBilling}
-        >
-          {plan.isPaid ? 'Manage billing' : 'Upgrade'}
-        </Button>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: theme.spacing[2],
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={plan.trial?.isOver && !plan.isPaid ? undefined : styles.muted}>{planSummary(plan)}</span>
+        {billingUrl ? (
+          <Button
+            variant="solid"
+            color="accent"
+            size="sm"
+            startIcon={<IconExternalLink size={theme.icon.size.sm} />}
+            href={billingUrl.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setBillingUrl(null)}
+          >
+            {billingUrl.kind === 'portal' ? 'Open billing portal' : 'Continue to checkout'}
+          </Button>
+        ) : plan.isPaid ? (
+          plan.plan !== 'lifetime' && (
+            <Button
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              loading={isOpeningBilling}
+              disabled={isOpeningBilling}
+              onClick={() => openBilling()}
+            >
+              Manage billing
+            </Button>
+          )
+        ) : (
+          <Button
+            variant={plan.trial?.isOver ? 'solid' : 'outline'}
+            color={plan.trial?.isOver ? 'accent' : 'neutral'}
+            size="sm"
+            onClick={() => setIsChoosingPlan((current) => !current)}
+          >
+            {isChoosingPlan ? 'Hide plans' : 'Choose a plan'}
+          </Button>
+        )}
+      </div>
+      {isChoosingPlan && !plan.isPaid && !billingUrl && (
+        <div style={{ display: 'flex', gap: theme.spacing[2], flexWrap: 'wrap' }}>
+          {offeredPlans.map((option) => (
+            <button
+              key={option}
+              type="button"
+              disabled={isOpeningBilling}
+              onClick={() => openBilling(option)}
+              style={{
+                flex: '1 1 140px',
+                textAlign: 'left',
+                padding: theme.spacing[2],
+                border: `1px solid ${theme.border.color.medium}`,
+                borderRadius: theme.border.radius.sm,
+                background: theme.background.primary,
+                color: theme.font.color.primary,
+                fontFamily: theme.font.family,
+                cursor: isOpeningBilling ? 'wait' : 'pointer',
+              }}
+            >
+              <strong style={{ display: 'block' }}>{PLANS[option].label}</strong>
+              <span style={{ display: 'block' }}>{PLANS[option].price}</span>
+              <span style={{ ...styles.muted, display: 'block', fontSize: theme.font.size.sm }}>
+                {PLANS[option].detail}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   ) : null;

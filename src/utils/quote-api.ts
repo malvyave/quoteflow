@@ -2,7 +2,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { RestApiClient, RestApiClientError } from 'twenty-client-sdk/rest';
 
 import { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
-import { type PlanStatus } from 'src/utils/billing';
+import { type Plan, type PlanStatus } from 'src/utils/billing';
 import { type QuoteClient } from 'src/utils/public-quote-page';
 import { addDays, DEFAULT_VALIDITY_DAYS, toIsoDate, toQuoteClient } from 'src/utils/quote-details';
 import { computeQuoteTotals, majorToMicros, microsToMajor } from 'src/utils/quote-totals';
@@ -327,10 +327,12 @@ export type { PlanStatus } from 'src/utils/billing';
 export const loadPlanStatus = () =>
   new RestApiClient().get<PlanStatus>(`/s${QUOTE_ACTIONS_ROUTE_PREFIX}/plan`);
 
-export const startUpgrade = async () => {
+// With a plan: a checkout for it. Without one: the billing portal for the current subscription.
+export const startUpgrade = async (plan?: Plan) => {
   try {
     return await new RestApiClient().post<{ kind: 'checkout' | 'portal'; url: string }>(
       `/s${QUOTE_ACTIONS_ROUTE_PREFIX}/upgrade`,
+      plan ? { plan } : {},
     );
   } catch (error) {
     const message =

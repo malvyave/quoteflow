@@ -1,30 +1,72 @@
-import { QuoteStatus } from 'src/objects/quote.object';
-import { isQuoteExpired } from 'src/utils/quote-details';
-
 // Pure billing rules and a minimal Dodo Payments client. Nothing here reads the environment, so
 // it can be unit-tested with a fake fetch.
 
-export const FREE_ACTIVE_QUOTE_LIMIT = 5;
+// The trial and the plans. Prices are shown in the app; they must match the Dodo Payments
+// products and the website.
+export const TRIAL_DAYS = 14;
+export const TRIAL_QUOTE_LIMIT = 10;
+export const LIFETIME_SEAT_LIMIT = 75;
+
+export type Plan = 'monthly' | 'annual' | 'lifetime';
+
+export const PLANS: Record<Plan, { label: string; price: string; detail: string }> = {
+  monthly: { label: 'Monthly', price: '$12 / month', detail: 'Billed monthly. Cancel anytime.' },
+  annual: { label: 'Annual', price: '$108 / year', detail: '$9 a month, billed yearly. Save 25%.' },
+  lifetime: { label: 'Lifetime', price: '$139 once', detail: 'Pay once. Unlimited quotes, forever.' },
+};
+
+export const isPlan = (value: unknown): value is Plan =>
+  value === 'monthly' || value === 'annual' || value === 'lifetime';
+
+export type TrialStatus = {
+  endsAt: string;
+  daysLeft: number;
+  quotesUsed: number;
+  quoteLimit: number;
+  isOver: boolean;
+};
 
 export type PlanStatus = {
   billingEnabled: boolean;
   isPaid: boolean;
-  activeQuoteCount: number;
-  freeLimit: number;
+  plan: Plan | null;
+  trial: TrialStatus | null;
+  isLifetimeAvailable: boolean;
 };
 
-// An active quote is one a client can still accept: sent and not past its valid-until date.
-export const countsAsActiveQuote = (
-  quote: { status: string | null; expiresAt: string | null },
-  now: Date,
-) => quote.status === QuoteStatus.SENT && !isQuoteExpired(quote.expiresAt, now);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const canSendAnotherQuote = ({
-  billingEnabled,
-  isPaid,
-  activeQuoteCount,
-  freeLimit,
-}: PlanStatus) => !billingEnabled || isPaid || activeQuoteCount < freeLimit;
+// The trial runs 14 days from the workspace's first use, and covers 10 sent quotes; it ends at
+// whichever comes first.
+export const getTrialStatus = ({
+  startedAt,
+  quotesUsed,
+  now,
+}: {
+  startedAt: string;
+  quotesUsed: number;
+  now: Date;
+}): TrialStatus => {
+  const endsAt = new Date(new Date(startedAt).getTime() + TRIAL_DAYS * DAY_MS);
+  const daysLeft = Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS));
+
+  return {
+    endsAt: endsAt.toISOString(),
+    daysLeft,
+    quotesUsed,
+    quoteLimit: TRIAL_QUOTE_LIMIT,
+    isOver: daysLeft === 0 || quotesUsed >= TRIAL_QUOTE_LIMIT,
+  };
+};
+
+export const canSendAnotherQuote = ({ billingEnabled, isPaid, trial }: PlanStatus) =>
+  !billingEnabled || isPaid || !trial?.isOver;
+
+// What the member is told when sending is blocked.
+export const trialOverMessage = (trial: TrialStatus | null) =>
+  trial && trial.quotesUsed >= trial.quoteLimit && trial.daysLeft > 0
+    ? `Your free trial includes ${trial.quoteLimit} quotes. Choose a plan to keep sending quotes.`
+    : 'Your free trial has ended. Choose a plan to keep sending quotes.';
 
 // Subscriptions that still grant the paid plan. past_due keeps access while Dodo retries a
 // failed renewal; on_hold, cancelled, expired and failed do not.
@@ -59,6 +101,7 @@ export class DodoError extends Error {
 
 type DodoCustomer = { customer_id: string; metadata?: Record<string, unknown> | null };
 type DodoSubscription = { subscription_id: string; status: string; product_id?: string };
+type DodoPayment = { payment_id: string; status?: string | null; refund_status?: string | null };
 
 export const createDodoClient = ({
   apiKey,
@@ -135,22 +178,58 @@ export const createDodoClient = ({
       return null;
     },
 
-    hasPayingSubscription: async ({
+    // The product of the customer's paying subscription among the given ones, if any.
+    findPayingSubscriptionProduct: async ({
       customerId,
-      productId,
+      productIds,
     }: {
       customerId: string;
-      productId?: string;
+      productIds: string[];
     }) => {
       const { items } = await request<{ items: DodoSubscription[] }>('GET', '/subscriptions', {
         query: { customer_id: customerId, page_size: String(PAGE_SIZE) },
       });
-
-      return items.some(
+      const paying = items.find(
         (subscription) =>
           isPayingSubscriptionStatus(subscription.status) &&
-          (!productId || !subscription.product_id || subscription.product_id === productId),
+          subscription.product_id !== undefined &&
+          productIds.includes(subscription.product_id),
       );
+
+      return paying?.product_id ?? null;
+    },
+
+    // One-time purchases (Lifetime). A refunded payment no longer counts.
+    countSucceededPayments: async ({
+      productId,
+      customerId,
+      cap,
+    }: {
+      productId: string;
+      customerId?: string;
+      cap: number;
+    }) => {
+      let count = 0;
+
+      for (let page = 0; page < MAX_CUSTOMER_PAGES && count < cap; page++) {
+        const { items } = await request<{ items: DodoPayment[] }>('GET', '/payments', {
+          query: {
+            product_id: productId,
+            status: 'succeeded',
+            page_size: String(PAGE_SIZE),
+            page_number: String(page),
+            ...(customerId ? { customer_id: customerId } : {}),
+          },
+        });
+
+        count += items.filter((payment) => !payment.refund_status).length;
+
+        if (items.length < PAGE_SIZE) {
+          break;
+        }
+      }
+
+      return Math.min(count, cap);
     },
 
     createCheckout: async ({

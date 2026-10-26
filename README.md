@@ -2,14 +2,22 @@
 
 Itemized quotes on your Twenty deals. Add line items, send your client a link, and when they accept, the deal is marked won with the right amount.
 
-## Free during the beta
+## Pricing
 
-QuoteFlow is free while it is in beta. After the beta it will be:
+One flat fee per workspace, not per user.
 
-- **Free**: up to 5 active quotes at a time (sent and not yet accepted or expired).
-- **Paid**: unlimited quotes for $19 per workspace per month.
+| Plan | Price | What you get |
+| --- | --- | --- |
+| **Free trial** | $0 | 14 days, up to 10 quotes sent. No credit card. |
+| **Monthly** | $12 per workspace per month | Unlimited quotes. Cancel anytime. |
+| **Annual** | $108 per workspace per year ($9 a month) | Unlimited quotes. Save 25%. |
+| **Lifetime** | $139 once | Unlimited quotes forever. Limited to the first 75 workspaces. |
 
-Workspaces that use QuoteFlow during the beta get 50% off the paid plan for life. Feedback is very welcome; see [Support](#support).
+When the trial ends, you can still open and edit your quotes, and links you already sent keep working for your clients; sending new quotes needs a plan. Choose one from the plan bar in the Quote tab. Payments are processed by Dodo Payments.
+
+QuoteFlow on a self-hosted Twenty server is free: plans apply to Twenty Cloud.
+
+Feedback is very welcome; see [Support](#support).
 
 ## How it works
 
