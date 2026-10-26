@@ -15,6 +15,7 @@ export const toPreviewQuote = (draft: QuoteDraft, seller: QuoteSeller): PublicQu
   taxPercent: parseNumber(draft.taxPercent),
   sentAt: draft.sentAt,
   acceptedAt: draft.acceptedAt,
+  acceptedByName: draft.acceptedByName,
   expiresAt: draft.expiresAt || null,
   message: draft.message,
   terms: draft.terms,

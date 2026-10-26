@@ -17,8 +17,10 @@ Workspaces that use QuoteFlow during the beta get 50% off the paid plan for life
 2. **Step 1 · Edit.** Add line items with quantity and price, and set a discount, tax and how long the quote is valid. Add an optional message to your client and your terms. A live preview beside the editor shows exactly what your client will see as you type.
 3. Click **Next: Review & share**. QuoteFlow saves the quote and shows a summary next to the full preview.
 4. **Step 2 · Review & share.** Click **Send quote**. You get a private link, and a ready-written email to your client with the quote number, total and link. Edit it if you like, then click **Open in email app** to send it from your own mailbox, or **Copy email** to paste it anywhere. The quote is locked while it is out.
-5. Your client opens the link (no account needed), reviews the quote and clicks **Accept quote**. They can also download it as a PDF.
-6. The quote is marked **Accepted**, and the deal moves to your won stage with its amount set to the quote total.
+5. Your client opens the link (no account needed). The Quote tab shows when they first viewed it. They can download it as a PDF.
+6. Your client types their name and clicks **Accept quote**, or declines, optionally saying why.
+7. Accepted: the quote is marked **Accepted** with the client's name, and the deal moves to your won stage with its amount set to the quote total. Declined: you see the reason and can **Revise and resend**.
+8. Sent, viewed, accepted and declined also appear on the deal's **Timeline**.
 
 ## Features
 
@@ -31,6 +33,10 @@ Workspaces that use QuoteFlow during the beta get 50% off the paid plan for life
 - Default message and terms for new quotes.
 - Clean client page with a layout for small screens, which prints to a tidy PDF without the browser's header and footer, so the private link never ends up in the file.
 - Withdraw a sent quote to edit it; the old link stops working.
+- See when the client first opened the quote. Your own clicks from the Quote tab do not count.
+- Clients accept with their name, or decline with an optional reason.
+- Quote events on the deal's timeline.
+- A **By status** board in the Quotes list (Draft, Sent, Accepted, Declined, Superseded), with the total per column. Each card links to its deal.
 - Only one quote per deal can be accepted. Other open quotes on the deal are marked **Superseded**, and their links explain that they were replaced.
 
 ## Settings
@@ -56,6 +62,7 @@ QuoteFlow only works with the records it needs:
 - **Opportunities**: read, and update the stage and amount when a quote is accepted.
 - **Companies**: read the client's company name and address shown on the quote.
 - **People**: read the deal's point of contact, to show their name and email on the quote.
+- **Timeline activities**: add quote events (sent, viewed, accepted, declined) to the deal's timeline.
 
 It has no access to notes, emails or any other records, and never changes companies or people. In the Quote tab it never does more than the signed-in member is allowed to do.
 
@@ -76,6 +83,10 @@ Client links contain a long random secret, are hidden from search engines, and s
 ## Support
 
 Found a bug or have an idea? Open an issue on [GitHub](https://github.com/anudeepkaur3/quoteflow/issues).
+
+## License
+
+[MIT](LICENSE)
 
 ## Development
 

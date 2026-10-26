@@ -50,9 +50,10 @@ test('a client reviews the quote, accepts it, and the deal is won', async ({ pag
   await expect(page.getByText('$6,903.00')).toBeVisible();
   await expect(page.getByText('Payment due within 30 days.')).toBeVisible();
 
+  await page.getByLabel('Your full name').fill('Samira Hadid');
   await page.getByRole('button', { name: 'Accept quote' }).click();
 
-  await expect(page.getByText(/Accepted on .*Thank you!/)).toBeVisible();
+  await expect(page.getByText(/Accepted by Samira Hadid on .*Thank you!/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Accept quote' })).toHaveCount(0);
 
   const deal = await getDeal(dealId);

@@ -3,7 +3,7 @@ import { type RoutePayload } from 'twenty-sdk/logic-function';
 
 import { VIEW_PUBLIC_QUOTE_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 import { QuoteStatus } from 'src/objects/quote.object';
-import { findQuoteByPublicToken } from 'src/utils/public-quote-data';
+import { findQuoteByPublicToken, recordFirstView } from 'src/utils/public-quote-data';
 import { renderQuotePage } from 'src/utils/public-quote-page';
 import {
   htmlResponse,
@@ -33,10 +33,17 @@ const handler = async (event: RoutePayload) => {
     return quoteUnavailableResponse(state);
   }
 
+  // Links opened from the Quote tab carry from=app, so the member's own clicks are not
+  // mistaken for the client viewing the quote.
+  if (event.queryStringParameters?.from !== 'app') {
+    await recordFirstView(quote);
+  }
+
   return htmlResponse(
     renderQuotePage({
       quote,
       acceptActionUrl: `./${token}/accept`,
+      declineActionUrl: `./${token}/decline`,
       autoPrint: event.queryStringParameters?.print === '1',
       isExpired: quote.status === QuoteStatus.SENT && isQuoteExpired(quote.expiresAt, new Date()),
     }),

@@ -55,6 +55,14 @@ export default defineApplicationRole({
       canDestroyObjectRecords: false,
     },
     {
+      // Sent, viewed, accepted and declined appear on the deal's timeline.
+      objectUniversalIdentifier: STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.timelineActivity.universalIdentifier,
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: true,
+      canSoftDeleteObjectRecords: false,
+      canDestroyObjectRecords: false,
+    },
+    {
       // The quote shows the deal's point of contact: name and email only.
       objectUniversalIdentifier: STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
       canReadObjectRecords: true,

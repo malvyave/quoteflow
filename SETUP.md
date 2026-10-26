@@ -46,19 +46,30 @@ Follow these steps to get your app running locally.
 Integration and browser tests need the Twenty CLI on your PATH (`npm install -g twenty@2.46.0`)
 and the local server running. They create their own test deals and delete them afterwards.
 
-By default `yarn test` uninstalls and reinstalls the app first, which **deletes every quote in the
-workspace**. To keep your local data, test the app you already synced instead:
+Locally, `yarn test` uses the app as you last synced it (`yarn twenty apply`) and keeps your data.
+CI, and anyone who sets `TWENTY_TEST_FRESH_INSTALL=1`, uninstalls and reinstalls the app first,
+which **deletes every quote in the workspace**, so only do that on a throwaway server.
 
-```bash
-TWENTY_TEST_REUSE_INSTALL=1 yarn test
-```
-
-With `TWENTY_TEST_REUSE_INSTALL=1` the billing tests are skipped too, because they overwrite and
-then clear the Dodo Payments keys (server variables). Add `TWENTY_TEST_BILLING=1` to run them anyway on
-a server where losing those keys is fine.
+The billing tests are skipped locally too, because they overwrite and then clear the Dodo Payments
+keys (server variables). Add `TWENTY_TEST_BILLING=1` to run them anyway on a server where losing
+those keys is fine.
 
 Browser tests expect the app to be installed (`yarn twenty apply`) and use the installed Google
-Chrome locally. CI runs all of these on every push and pull request (`.github/workflows/ci.yml`).
+Chrome locally. CI runs all of these on pushes to `main` and on pull requests
+(`.github/workflows/ci.yml`); start a run by hand from the Actions tab or with
+`gh workflow run CI --ref <branch>`.
+
+## Publishing
+
+1. Make sure CI passes on `main` and the version in `package.json` and `CHANGELOG.md` match.
+2. **First release only**, from your machine, because npm can set up trusted publishing only for a
+   package that already exists: `npm login`, then
+   `TWENTY_APP_PUBLISH_DISABLE_PROVENANCE=true yarn twenty app:publish`.
+3. On npmjs.com, open the package → **Settings → Trusted Publisher**, and add this GitHub repository
+   with the workflow `publish.yml`.
+4. **Every later release:** bump the version, then push a tag (`git tag v0.2.1 && git push --tags`).
+   `.github/workflows/publish.yml` publishes it with provenance, which is what lets you claim the
+   app in Twenty's marketplace.
 
 ## Troubleshooting
 

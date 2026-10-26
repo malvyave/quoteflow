@@ -4,8 +4,15 @@ All notable changes to this application are documented in this file.
 
 ## Unreleased
 
-- Every current world currency in the quote editor, with names, common currencies first.
+## 0.2.0 — 2026-10-26
 
+First public beta.
+
+- Clients accept with their name ("Accepted by …" on the quote and PDF), or decline with an optional reason; declined quotes can be revised and resent.
+- The Quote tab shows when the client first viewed the quote.
+- Sent, viewed, accepted and declined appear on the deal's timeline.
+- A "By status" board of quotes, with totals per column and a link to each deal.
+- Every current world currency in the quote editor, with names, common currencies first.
 - Email to client in Review & share: a ready-written, editable email with the quote number, total and link, which opens in your email app or copies to the clipboard.
 - Redesigned quote document: logo and big "Quote" heading, a "Prepared for" block from the deal's company and contact, a seller footer with contact details and tax ID, payment instructions and a brand color.
 - Default message and terms for new quotes.

@@ -48,6 +48,7 @@ export type PublicQuote = {
   taxPercent: number;
   sentAt: string | null;
   acceptedAt: string | null;
+  acceptedByName: string | null;
   expiresAt: string | null;
   message: string | null;
   terms: string | null;
@@ -140,7 +141,18 @@ const STYLES = `
   .payment-body p:last-child { margin-bottom: 0; }
   .terms h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
 
-  .actions { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+  .actions { display: flex; justify-content: flex-end; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px; }
+  .actions label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted);
+    flex: 1 1 220px; max-width: 320px; }
+  input, textarea { font: inherit; color: var(--text); background: var(--card); border: 1px solid #d6d6d6;
+    border-radius: 8px; padding: 10px 12px; width: 100%; }
+  textarea { min-height: 72px; resize: vertical; }
+  .decline { margin: 0 0 32px; text-align: right; font-size: 13px; color: var(--muted); }
+  .decline summary { cursor: pointer; display: inline; text-decoration: underline; }
+  .decline form { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    text-align: left; }
+  .decline label { display: flex; flex-direction: column; gap: 4px; width: min(100%, 420px); }
   button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 12px 24px;
     font: inherit; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -201,7 +213,7 @@ const STYLES = `
     .payment { margin-bottom: 20px; }
     .invoice-footer { margin: 0; padding: 16px 24px; border-radius: 8px; }
     .table-row, .totals, .payment, .invoice-footer, .notice { break-inside: avoid; }
-    .toolbar, .actions, .preview-banner, .credit { display: none; }
+    .toolbar, .actions, .decline, .preview-banner, .credit { display: none; }
     .print-only { display: block; text-align: center; margin-top: 12px; color: var(--faint); font-size: 8pt; }
   }
 `;
@@ -289,43 +301,72 @@ const renderFooter = (quote: PublicQuote) => {
       </footer>`;
 };
 
+export const NAME_MAX_LENGTH = 120;
+export const REASON_MAX_LENGTH = 1000;
+
 const renderOutcome = ({
   quote,
   acceptActionUrl,
+  declineActionUrl,
   isExpired,
   isPreview,
 }: {
   quote: PublicQuote;
   acceptActionUrl: string;
+  declineActionUrl: string;
   isExpired: boolean;
   isPreview: boolean;
 }) => {
   if (quote.status === 'ACCEPTED') {
-    return `<div class="notice">Accepted${quote.acceptedAt ? ` on ${formatDate(quote.acceptedAt)}` : ''}. Thank you!</div>`;
+    const by = quote.acceptedByName ? ` by ${escapeHtml(quote.acceptedByName)}` : '';
+    const on = quote.acceptedAt ? ` on ${formatDate(quote.acceptedAt)}` : '';
+
+    return `<div class="notice">Accepted${by}${on}. Thank you!</div>`;
   }
 
   if (isExpired) {
     return `<div class="notice warning">This quote expired on ${formatDate(quote.expiresAt)}. Please contact the sender for an updated quote.</div>`;
   }
 
+  const nameField = (disabled: boolean) => `<label>Your full name
+            <input name="acceptedByName" autocomplete="name" maxlength="${NAME_MAX_LENGTH}" required${disabled ? ' disabled' : ''}>
+          </label>`;
+
   if (isPreview) {
-    return `<div class="actions"><button type="button" disabled>Accept quote</button></div>`;
+    return `<div class="actions">${nameField(true)}<button type="button" disabled>Accept quote</button></div>`;
   }
 
-  return `<form class="actions" method="post" action="${escapeHtml(acceptActionUrl)}">
+  // The client types their name, so the accepted quote records who agreed to it.
+  const accept = `<form class="actions" method="post" action="${escapeHtml(acceptActionUrl)}">
+          ${nameField(false)}
           <button type="submit">Accept quote</button>
         </form>`;
+  const decline = declineActionUrl
+    ? `<details class="decline">
+          <summary>Decline this quote</summary>
+          <form method="post" action="${escapeHtml(declineActionUrl)}">
+            <label>Reason (optional)
+              <textarea name="declineReason" maxlength="${REASON_MAX_LENGTH}"></textarea>
+            </label>
+            <button type="submit" class="secondary">Decline quote</button>
+          </form>
+        </details>`
+    : '';
+
+  return accept + decline;
 };
 
 export const renderQuotePage = ({
   quote,
   acceptActionUrl,
+  declineActionUrl = '',
   autoPrint = false,
   isExpired = false,
   isPreview = false,
 }: {
   quote: PublicQuote;
   acceptActionUrl: string;
+  declineActionUrl?: string;
   autoPrint?: boolean;
   isExpired?: boolean;
   isPreview?: boolean;
@@ -398,7 +439,7 @@ export const renderQuotePage = ({
           ? `<section class="payment"><h3>Payment Instructions</h3><div class="payment-body">${paymentLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}</div></section>`
           : ''
       }
-      ${renderOutcome({ quote, acceptActionUrl, isExpired, isPreview })}
+      ${renderOutcome({ quote, acceptActionUrl, declineActionUrl, isExpired, isPreview })}
       ${renderFooter(quote)}
     </div>
     <p class="print-only">Quote ${escapeHtml(quote.reference)} · Prepared with QuoteFlow</p>`,

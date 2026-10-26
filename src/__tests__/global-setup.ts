@@ -33,9 +33,10 @@ async function checkServer(apiUrl: string) {
 }
 
 // Uninstalling deletes the app's objects and every quote in the workspace. CI runs against a
-// throwaway server, so it reinstalls from scratch; locally, set TWENTY_TEST_REUSE_INSTALL=1 to
-// test the already-synced app and keep your data.
-const shouldReuseInstall = () => process.env.TWENTY_TEST_REUSE_INSTALL === '1';
+// throwaway server, so it reinstalls from scratch. Anywhere else the tests use the app as
+// installed and keep your data, unless TWENTY_TEST_FRESH_INSTALL=1 asks for a clean install.
+const shouldReuseInstall = () =>
+  process.env.CI !== 'true' && process.env.TWENTY_TEST_FRESH_INSTALL !== '1';
 
 export async function setup() {
   const { apiUrl } = validateEnv();

@@ -16,7 +16,7 @@ import { FREE_ACTIVE_QUOTE_LIMIT, type PlanStatus } from 'src/utils/billing';
 // The Dodo test-mode block also needs DODO_TEST_API_KEY and DODO_TEST_PRODUCT_ID.
 
 const changesServerVariables =
-  process.env.TWENTY_TEST_REUSE_INSTALL !== '1' || process.env.TWENTY_TEST_BILLING === '1';
+  process.env.CI === 'true' || process.env.TWENTY_TEST_BILLING === '1';
 
 const createdDeals: string[] = [];
 

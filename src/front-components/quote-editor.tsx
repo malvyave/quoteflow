@@ -78,6 +78,15 @@ const formatShortDate = (isoDate: string) =>
     timeZone: 'UTC',
   });
 
+// Moments the client acted, in the member's own time zone.
+const formatDateTime = (isoDateTime: string) =>
+  new Date(isoDateTime).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
 // Keeps digits and the first decimal point, so amounts can't go negative or contain letters.
 const toDecimalInput = (value: string) => {
   const [whole, ...decimals] = value.replace(/[^0-9.]/g, '').split('.');
@@ -954,7 +963,7 @@ const QuoteEditor = () => {
           color="neutral"
           size="sm"
           startIcon={<IconDownload size={theme.icon.size.sm} />}
-          href={`${publicUrl}?print=1`}
+          href={`${publicUrl}?print=1&from=app`}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -965,7 +974,7 @@ const QuoteEditor = () => {
           color="neutral"
           size="sm"
           startIcon={<IconExternalLink size={theme.icon.size.sm} />}
-          href={publicUrl}
+          href={`${publicUrl}?from=app`}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -1066,6 +1075,19 @@ const QuoteEditor = () => {
           String(draft.lineItems.filter((lineItem) => lineItem.name.trim() !== '').length),
         )}
         {summaryRow('Valid until', draft.expiresAt ? formatShortDate(draft.expiresAt) : 'No expiry')}
+        {draft.status === QuoteStatus.SENT &&
+          summaryRow('Viewed', draft.viewedAt ? formatDateTime(draft.viewedAt) : 'Not yet')}
+        {draft.status === QuoteStatus.ACCEPTED &&
+          summaryRow(
+            'Accepted',
+            [draft.acceptedByName, draft.acceptedAt ? formatDateTime(draft.acceptedAt) : null]
+              .filter(Boolean)
+              .join(' · ') || '—',
+          )}
+        {draft.status === QuoteStatus.DECLINED &&
+          summaryRow('Declined', draft.declinedAt ? formatDateTime(draft.declinedAt) : '—')}
+        {draft.status === QuoteStatus.DECLINED &&
+          summaryRow('Reason', draft.declineReason ?? 'No reason given')}
         {summaryRow(
           'Total',
           <strong style={{ fontWeight: theme.font.weight.semiBold }}>{money(totals.totalMicros)}</strong>,
@@ -1109,7 +1131,7 @@ const QuoteEditor = () => {
             Send quote
           </Button>
         )}
-        {draft.status === QuoteStatus.SENT && (
+        {(draft.status === QuoteStatus.SENT || draft.status === QuoteStatus.DECLINED) && (
           <Button
             variant="outline"
             color="neutral"
@@ -1118,7 +1140,7 @@ const QuoteEditor = () => {
             disabled={isChangingStatus}
             onClick={withdraw}
           >
-            Withdraw and edit
+            {draft.status === QuoteStatus.DECLINED ? 'Revise and resend' : 'Withdraw and edit'}
           </Button>
         )}
       </div>

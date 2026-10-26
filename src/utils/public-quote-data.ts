@@ -4,6 +4,7 @@ import { DEFAULT_WON_STAGE } from 'src/constants/universal-identifiers';
 import { QuoteStatus } from 'src/objects/quote.object';
 import { type PublicQuote } from 'src/utils/public-quote-page';
 import { toQuoteClient, toQuoteReference } from 'src/utils/quote-details';
+import { logQuoteActivity } from 'src/utils/quote-activity';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
 
 // Typed by hand so this compiles before the app's client has been generated.
@@ -17,6 +18,7 @@ export type PublicQuoteRecord = PublicQuote & {
   id: string;
   opportunityId: string | null;
   totalMicros: number;
+  viewedAt: string | null;
 };
 
 // Public routes have no signed-in person, so this client acts as the app itself.
@@ -38,6 +40,8 @@ export const findQuoteByPublicToken = async (
           taxPercent: true,
           sentAt: true,
           acceptedAt: true,
+          acceptedByName: true,
+          viewedAt: true,
           expiresAt: true,
           message: true,
           terms: true,
@@ -109,6 +113,8 @@ export const findQuoteByPublicToken = async (
     taxPercent: quote.taxPercent ?? 0,
     sentAt: quote.sentAt ?? null,
     acceptedAt: quote.acceptedAt ?? null,
+    acceptedByName: quote.acceptedByName ?? null,
+    viewedAt: quote.viewedAt ?? null,
     expiresAt: quote.expiresAt ?? null,
     message: quote.message ?? null,
     terms: quote.terms ?? null,
@@ -180,7 +186,7 @@ const markOpportunityWon = async (client: CoreApiClient, quote: PublicQuoteRecor
 // Updates the opportunity first, so a failure can never leave an accepted quote on a deal that
 // was not updated; retrying the acceptance completes it. Other open quotes on the deal are then
 // superseded so only one can win.
-export const acceptQuote = async (quote: PublicQuoteRecord) => {
+export const acceptQuote = async (quote: PublicQuoteRecord, acceptedByName: string | null) => {
   const client = new CoreApiClient();
   const acceptedAt = new Date().toISOString();
 
@@ -188,7 +194,7 @@ export const acceptQuote = async (quote: PublicQuoteRecord) => {
 
   await client.mutation({
     updateQuote: {
-      __args: { id: quote.id, data: { status: QuoteStatus.ACCEPTED, acceptedAt } },
+      __args: { id: quote.id, data: { status: QuoteStatus.ACCEPTED, acceptedAt, acceptedByName } },
       id: true,
     },
   });
@@ -209,5 +215,53 @@ export const acceptQuote = async (quote: PublicQuoteRecord) => {
     });
   }
 
-  return { ...quote, status: QuoteStatus.ACCEPTED, acceptedAt };
+  await logQuoteActivity('accepted', {
+    quoteId: quote.id,
+    opportunityId: quote.opportunityId,
+    properties: { reference: quote.reference, acceptedByName },
+  });
+
+  return { ...quote, status: QuoteStatus.ACCEPTED, acceptedAt, acceptedByName };
+};
+
+// The client said no. The member sees the reason in the Quote tab and can revise and resend.
+export const declineQuote = async (quote: PublicQuoteRecord, declineReason: string | null) => {
+  await new CoreApiClient().mutation({
+    updateQuote: {
+      __args: {
+        id: quote.id,
+        data: { status: QuoteStatus.DECLINED, declinedAt: new Date().toISOString(), declineReason },
+      },
+      id: true,
+    },
+  });
+
+  await logQuoteActivity('declined', {
+    quoteId: quote.id,
+    opportunityId: quote.opportunityId,
+    properties: { reference: quote.reference, declineReason },
+  });
+};
+
+// Only the first visit counts: "viewed" tells the member the client has seen the quote at all.
+export const recordFirstView = async (quote: PublicQuoteRecord) => {
+  if (quote.status !== QuoteStatus.SENT || quote.viewedAt) {
+    return;
+  }
+
+  try {
+    await new CoreApiClient().mutation({
+      updateQuote: { __args: { id: quote.id, data: { viewedAt: new Date().toISOString() } }, id: true },
+    });
+  } catch (error) {
+    console.warn('Could not record that the quote was viewed.', error);
+
+    return;
+  }
+
+  await logQuoteActivity('viewed', {
+    quoteId: quote.id,
+    opportunityId: quote.opportunityId,
+    properties: { reference: quote.reference },
+  });
 };

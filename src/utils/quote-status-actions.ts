@@ -5,12 +5,14 @@ import { QuoteStatus } from 'src/objects/quote.object';
 import { generatePublicToken } from 'src/utils/public-quote-token';
 import { canSendAnotherQuote, FREE_ACTIVE_QUOTE_LIMIT } from 'src/utils/billing';
 import { countActiveQuotes, getBillingConfig, getEntitlement } from 'src/utils/billing-server';
-import { isQuoteExpired } from 'src/utils/quote-details';
+import { logQuoteActivity } from 'src/utils/quote-activity';
+import { isQuoteExpired, toQuoteReference } from 'src/utils/quote-details';
 
 export { QUOTE_ACTIONS_ROUTE_PREFIX } from 'src/utils/public-quote-token';
 
 type QuoteForAction = {
   id: string;
+  opportunityId: string | null;
   status: string;
   number: number | null;
   expiresAt: string | null;
@@ -44,7 +46,7 @@ const loadQuoteAsMember = async (quoteId: unknown): Promise<QuoteForAction> => {
   const { quotes, quoteLineItems } = await new CoreApiClient().query({
     quotes: {
       __args: { filter: { id: { eq: quoteId } }, first: 1 },
-      edges: { node: { id: true, status: true, number: true, expiresAt: true } },
+      edges: { node: { id: true, opportunityId: true, status: true, number: true, expiresAt: true } },
     },
     quoteLineItems: {
       __args: { filter: { quoteId: { eq: quoteId } }, first: 1 },
@@ -59,6 +61,7 @@ const loadQuoteAsMember = async (quoteId: unknown): Promise<QuoteForAction> => {
 
   return {
     id: quote.id,
+    opportunityId: quote.opportunityId ?? null,
     status: quote.status ?? QuoteStatus.DRAFT,
     number: quote.number ?? null,
     expiresAt: quote.expiresAt ?? null,
@@ -73,6 +76,9 @@ const updateQuoteAsApp = async (
     sentAt: string | null;
     publicToken: string | null;
     number?: number;
+    viewedAt?: null;
+    declinedAt?: null;
+    declineReason?: null;
   },
 ) => {
   await new CoreApiClient({ runAs: 'application' }).mutation({
@@ -97,7 +103,17 @@ const isUniqueViolation = (error: unknown) =>
 
 export const sendQuoteAction = async (quoteId: unknown) => {
   const quote = await loadQuoteAsMember(quoteId);
+  const number = await sendLoadedQuote(quote);
 
+  await logQuoteActivity('sent', {
+    quoteId: quote.id,
+    opportunityId: quote.opportunityId,
+    properties: { reference: toQuoteReference(quote.id, number) },
+  });
+};
+
+// Returns the quote's number: kept from an earlier send, or the next free one.
+const sendLoadedQuote = async (quote: QuoteForAction): Promise<number> => {
   if (quote.status !== QuoteStatus.DRAFT) {
     throw new QuoteActionError('Only draft quotes can be sent.', 409);
   }
@@ -136,7 +152,7 @@ export const sendQuoteAction = async (quoteId: unknown) => {
   if (quote.number !== null) {
     await updateQuoteAsApp(quote.id, sendData);
 
-    return;
+    return quote.number;
   }
 
   // The unique index settles races between two sends: on a clash, try the next number.
@@ -147,7 +163,7 @@ export const sendQuoteAction = async (quoteId: unknown) => {
     try {
       await updateQuoteAsApp(quote.id, { ...sendData, number: candidate });
 
-      return;
+      return candidate;
     } catch (error) {
       if (!isUniqueViolation(error) || attempt >= MAX_NUMBERING_ATTEMPTS) {
         throw error;
@@ -162,14 +178,19 @@ export const sendQuoteAction = async (quoteId: unknown) => {
 export const withdrawQuoteAction = async (quoteId: unknown) => {
   const quote = await loadQuoteAsMember(quoteId);
 
-  if (quote.status !== QuoteStatus.SENT) {
-    throw new QuoteActionError('Only sent quotes can be withdrawn.', 409);
+  // A declined quote goes back to draft the same way, so the member can revise and resend it.
+  if (quote.status !== QuoteStatus.SENT && quote.status !== QuoteStatus.DECLINED) {
+    throw new QuoteActionError('Only sent or declined quotes can be withdrawn.', 409);
   }
 
+  // The next send gets a new link, so what the client did with the old one is cleared.
   await updateQuoteAsApp(quote.id, {
     status: QuoteStatus.DRAFT,
     sentAt: null,
     publicToken: null,
+    viewedAt: null,
+    declinedAt: null,
+    declineReason: null,
   });
 };
 

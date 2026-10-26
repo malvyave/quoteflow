@@ -19,6 +19,7 @@ const quote = (overrides: Partial<PublicQuote> = {}): PublicQuote => ({
   taxPercent: 18,
   sentAt: '2026-10-15T10:00:00.000Z',
   acceptedAt: null,
+  acceptedByName: null,
   expiresAt: null,
   message: null,
   terms: null,
@@ -262,6 +263,32 @@ describe('renderQuotePage details', () => {
     expect(html).toContain(
       '<div class="payment-body"><p>HDFC Bank</p><p>A/C 501001</p><p>IFSC HDFC0001234</p></div>',
     );
+  });
+
+  it('asks for the name of the person accepting, and offers to decline with a reason', () => {
+    const html = renderQuotePage({
+      quote: quote(),
+      acceptActionUrl: './abc/accept',
+      declineActionUrl: './abc/decline',
+    });
+
+    expect(html).toContain('<input name="acceptedByName" autocomplete="name" maxlength="120" required>');
+    expect(html).toContain('<form method="post" action="./abc/decline">');
+    expect(html).toContain('<textarea name="declineReason" maxlength="1000"></textarea>');
+  });
+
+  it('offers no decline when there is nowhere to send it', () => {
+    expect(renderQuotePage({ quote: quote(), acceptActionUrl: './abc/accept' })).not.toContain('Decline');
+  });
+
+  it('names who accepted, escaped', () => {
+    const html = renderQuotePage({
+      quote: quote({ status: 'ACCEPTED', acceptedAt: '2026-10-20T09:00:00.000Z', acceptedByName: 'Sam <b>' }),
+      acceptActionUrl: '',
+    });
+
+    expect(html).toContain('Accepted by Sam &lt;b&gt; on October 20, 2026. Thank you!');
+    expect(html).not.toContain('acceptedByName');
   });
 
   it('escapes the client and seller details', () => {

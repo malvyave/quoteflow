@@ -151,12 +151,16 @@ export type QuoteRecord = {
   number: number | null;
   publicToken: string | null;
   acceptedAt: string | null;
+  acceptedByName: string | null;
+  viewedAt: string | null;
+  declinedAt: string | null;
+  declineReason: string | null;
 };
 
 export const getQuote = async (quoteId: string) => {
   const data = await gqlData<{ quotes: { edges: { node: QuoteRecord }[] } }>(
     `query($id: UUID!) { quotes(filter: { id: { eq: $id } }) {
-      edges { node { id status number publicToken acceptedAt } } } }`,
+      edges { node { id status number publicToken acceptedAt acceptedByName viewedAt declinedAt declineReason } } } }`,
     { id: quoteId },
   );
 
@@ -219,10 +223,36 @@ export const viewPublicQuote = async (token: string, query = '') => {
   return { status: response.status, html: await response.text() };
 };
 
-export const acceptPublicQuote = async (token: string) => {
-  const response = await fetch(`${publicQuoteUrl(token)}/accept`, { method: 'POST' });
+// Posts the client's form the way a browser does.
+const postPublicForm = async (url: string, fields: Record<string, string>) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields).toString(),
+  });
 
   return { status: response.status, html: await response.text() };
+};
+
+export const acceptPublicQuote = (token: string, fields: Record<string, string> = {}) =>
+  postPublicForm(`${publicQuoteUrl(token)}/accept`, fields);
+
+export const declinePublicQuote = (token: string, fields: Record<string, string> = {}) =>
+  postPublicForm(`${publicQuoteUrl(token)}/decline`, fields);
+
+// Timeline events QuoteFlow added to a deal, by the label of their type.
+export const getDealTimelineLabels = async (opportunityId: string) => {
+  const data = await gqlData<{
+    timelineActivities: { edges: { node: { timelineActivityTypeSnapshot: { label?: string } | null } }[] };
+  }>(
+    `query($id: UUID!) { timelineActivities(filter: { targetOpportunityId: { eq: $id } }, first: 50) {
+      edges { node { timelineActivityTypeSnapshot } } } }`,
+    { id: opportunityId },
+  );
+
+  return data.timelineActivities.edges
+    .map(({ node }) => node.timelineActivityTypeSnapshot?.label)
+    .filter((label): label is string => typeof label === 'string');
 };
 
 // Opportunities cascade-delete their quotes, and quotes their line items.

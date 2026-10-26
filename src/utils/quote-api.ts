@@ -35,6 +35,11 @@ export type QuoteDraft = {
   number: number | null;
   sentAt: string | null;
   acceptedAt: string | null;
+  // What the client did with the link; set by the app, read-only here.
+  acceptedByName: string | null;
+  viewedAt: string | null;
+  declinedAt: string | null;
+  declineReason: string | null;
   // Who the quote is for, from the deal; shown in the preview, not saved from the editor.
   client: QuoteClient;
   currencyCode: string;
@@ -116,6 +121,10 @@ export const loadQuoteDraft = async (
           number: true,
           sentAt: true,
           acceptedAt: true,
+          acceptedByName: true,
+          viewedAt: true,
+          declinedAt: true,
+          declineReason: true,
           currencyCode: true,
           discountPercent: true,
           taxPercent: true,
@@ -139,6 +148,10 @@ export const loadQuoteDraft = async (
       number: null,
       sentAt: null,
       acceptedAt: null,
+      acceptedByName: null,
+      viewedAt: null,
+      declinedAt: null,
+      declineReason: null,
       client: quoteClient,
       currencyCode: opportunity?.amount?.currencyCode || DEFAULT_CURRENCY_CODE,
       discountPercent: '0',
@@ -176,6 +189,10 @@ export const loadQuoteDraft = async (
     number: quote.number ?? null,
     sentAt: quote.sentAt ?? null,
     acceptedAt: quote.acceptedAt ?? null,
+    acceptedByName: quote.acceptedByName ?? null,
+    viewedAt: quote.viewedAt ?? null,
+    declinedAt: quote.declinedAt ?? null,
+    declineReason: quote.declineReason ?? null,
     client: quoteClient,
     currencyCode: quote.currencyCode || DEFAULT_CURRENCY_CODE,
     discountPercent: String(quote.discountPercent ?? 0),

@@ -1,8 +1,17 @@
 {
   "name": "twenty-quoteflow",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "QuoteFlow for Twenty: itemized quotes on your deals. Send a link, the client accepts, the deal is won.",
   "license": "MIT",
+  "author": "anudeepkaur3",
+  "homepage": "https://github.com/anudeepkaur3/quoteflow#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anudeepkaur3/quoteflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anudeepkaur3/quoteflow/issues"
+  },
   "engines": {
     "node": "^24.5.0",
     "npm": "please-use-yarn",

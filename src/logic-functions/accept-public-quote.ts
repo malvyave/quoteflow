@@ -7,7 +7,8 @@ import {
   findQuoteByPublicToken,
   hasOtherAcceptedQuote,
 } from 'src/utils/public-quote-data';
-import { renderMessagePage, renderQuotePage } from 'src/utils/public-quote-page';
+import { readNameField } from 'src/utils/public-quote-form';
+import { NAME_MAX_LENGTH, renderMessagePage, renderQuotePage } from 'src/utils/public-quote-page';
 import {
   htmlResponse,
   quoteNotFoundResponse,
@@ -62,7 +63,7 @@ const handler = async (event: RoutePayload) => {
     );
   }
 
-  const accepted = await acceptQuote(quote);
+  const accepted = await acceptQuote(quote, readNameField(event, 'acceptedByName', NAME_MAX_LENGTH));
 
   return htmlResponse(renderQuotePage({ quote: accepted, acceptActionUrl: '' }));
 };

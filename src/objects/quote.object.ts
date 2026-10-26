@@ -10,6 +10,9 @@ import {
 import {
   OPPORTUNITY_QUOTES_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_ACCEPTED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_ACCEPTED_BY_NAME_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_DECLINE_REASON_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_DECLINED_AT_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_CURRENCY_CODE_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_DISCOUNT_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_EXPIRES_AT_FIELD_UNIVERSAL_IDENTIFIER,
@@ -27,6 +30,7 @@ import {
   QUOTE_SUBTOTAL_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_TAX_PERCENT_FIELD_UNIVERSAL_IDENTIFIER,
   QUOTE_TOTAL_FIELD_UNIVERSAL_IDENTIFIER,
+  QUOTE_VIEWED_AT_FIELD_UNIVERSAL_IDENTIFIER,
 } from 'src/constants/universal-identifiers';
 
 export enum QuoteStatus {
@@ -135,6 +139,41 @@ export default defineObject({
       type: FieldType.DATE_TIME,
       label: 'Accepted at',
       icon: 'IconCircleCheck',
+      writability: MetadataWritability.APPLICATION,
+    },
+    {
+      universalIdentifier: QUOTE_ACCEPTED_BY_NAME_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'acceptedByName',
+      type: FieldType.TEXT,
+      label: 'Accepted by',
+      description: 'Name the client typed when accepting the quote',
+      icon: 'IconSignature',
+      writability: MetadataWritability.APPLICATION,
+    },
+    {
+      universalIdentifier: QUOTE_VIEWED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'viewedAt',
+      type: FieldType.DATE_TIME,
+      label: 'First viewed at',
+      description: 'When the client first opened the quote link',
+      icon: 'IconEye',
+      writability: MetadataWritability.APPLICATION,
+    },
+    {
+      universalIdentifier: QUOTE_DECLINED_AT_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'declinedAt',
+      type: FieldType.DATE_TIME,
+      label: 'Declined at',
+      icon: 'IconCircleX',
+      writability: MetadataWritability.APPLICATION,
+    },
+    {
+      universalIdentifier: QUOTE_DECLINE_REASON_FIELD_UNIVERSAL_IDENTIFIER,
+      name: 'declineReason',
+      type: FieldType.TEXT,
+      label: 'Decline reason',
+      description: 'Optional reason the client gave when declining',
+      icon: 'IconMessageCircle',
       writability: MetadataWritability.APPLICATION,
     },
     {
