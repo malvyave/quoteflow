@@ -90,7 +90,7 @@ Client links contain a long random secret, are hidden from search engines, and s
 
 ## Support
 
-Found a bug or have an idea? Open an issue on [GitHub](https://github.com/anudeepkaur3/quoteflow/issues).
+Found a bug or have an idea? Open an issue on [GitHub](https://github.com/malvyave/quoteflow/issues).
 
 ## License
 

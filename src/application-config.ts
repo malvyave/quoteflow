@@ -27,8 +27,8 @@ export default defineApplication({
   category: 'Sales',
   logo: 'public/logo.png',
   galleryImages: ['public/screenshot-editor.png', 'public/screenshot-client.png'],
-  websiteUrl: 'https://github.com/anudeepkaur3/quoteflow',
-  issueReportUrl: 'https://github.com/anudeepkaur3/quoteflow/issues',
+  websiteUrl: 'https://github.com/malvyave/quoteflow',
+  issueReportUrl: 'https://github.com/malvyave/quoteflow/issues',
   applicationVariables: {
     WON_STAGE: {
       universalIdentifier: WON_STAGE_VARIABLE_UNIVERSAL_IDENTIFIER,
