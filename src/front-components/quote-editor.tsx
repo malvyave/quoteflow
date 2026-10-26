@@ -48,13 +48,12 @@ import {
 } from 'src/utils/quote-api';
 import { EMPTY_SELLER, type QuoteSeller } from 'src/utils/public-quote-page';
 import { PUBLIC_QUOTE_ROUTE_PREFIX } from 'src/utils/public-quote-token';
+import { buildCurrencyOptions } from 'src/utils/currencies';
 import { addDays, toIsoDate, toQuoteReference } from 'src/utils/quote-details';
 import { buildQuoteEmail, toMailtoUrl, toPlainEmail, type QuoteEmail } from 'src/utils/quote-email';
 import { renderDraftPreview } from 'src/utils/quote-preview';
 import { loadQuoteSeller } from 'src/utils/quote-seller';
 import { formatMoney } from 'src/utils/quote-totals';
-
-const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'AED', 'CHF', 'JPY'];
 
 const STATUS_TAGS: Record<
   string,
@@ -322,9 +321,7 @@ const QuoteEditor = () => {
   const isDirty = JSON.stringify(draft) !== savedSnapshot;
   const statusTag = STATUS_TAGS[draft.status] ?? STATUS_TAGS[QuoteStatus.DRAFT];
   const money = (micros: number) => formatMoney(micros, draft.currencyCode);
-  const currencyOptions = CURRENCY_CODES.includes(draft.currencyCode)
-    ? CURRENCY_CODES
-    : [draft.currencyCode, ...CURRENCY_CODES];
+  const currencyOptions = buildCurrencyOptions(draft.currencyCode);
 
   const updateDraft = (changes: Partial<QuoteDraft>) =>
     setDraft((current) => (current ? { ...current, ...changes } : current));
@@ -767,13 +764,22 @@ const QuoteEditor = () => {
             value={draft.currencyCode}
             disabled={!isEditable}
             onChange={(event) => updateDraft({ currencyCode: event.target.value })}
-            style={{ ...styles.input, width: '96px' }}
+            style={{ ...styles.input, width: '220px', maxWidth: '100%' }}
           >
-            {currencyOptions.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
+            <optgroup label="Common">
+              {currencyOptions.common.map(({ code, label }) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="All currencies">
+              {currencyOptions.others.map(({ code, label }) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
         <label style={styles.label}>
