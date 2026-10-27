@@ -187,6 +187,28 @@ const QuoteEditor = () => {
     load();
   }, [load]);
 
+  // Checkout and the billing portal open in another tab, so check the plan again when the
+  // member comes back. The server asks Dodo at most once a minute while unpaid.
+  useEffect(() => {
+    if (!plan?.billingEnabled) {
+      return;
+    }
+
+    const refreshWhenVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'hidden') {
+        refreshPlan();
+      }
+    };
+
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [plan?.billingEnabled, refreshPlan]);
+
   // A sent quote changes outside this tab when the client accepts it, so check again when the
   // member comes back to the tab and every little while. Drafts are never refreshed, so nothing
   // the member is typing gets overwritten.
