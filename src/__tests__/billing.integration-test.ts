@@ -13,7 +13,8 @@ import { TRIAL_QUOTE_LIMIT, type PlanStatus } from 'src/utils/billing';
 // The free trial and the plans against a real server. These tests overwrite and then clear the
 // billing server variables, so they run on CI's throwaway server, and locally only with
 // TWENTY_TEST_BILLING=1, never by accident on a server where you entered your own keys.
-// The Dodo test-mode block also needs DODO_TEST_API_KEY and DODO_TEST_MONTHLY_PRODUCT_ID.
+// The real Dodo test-mode API is covered by src/utils/dodo-test-mode.test.ts: a checkout from
+// here needs a signed-in member, which an API key is not.
 
 const changesServerVariables =
   process.env.CI === 'true' || process.env.TWENTY_TEST_BILLING === '1';
@@ -117,28 +118,5 @@ describe.skipIf(!changesServerVariables)('with billing on and no plan yet', () =
 
     expect((await upgrade('free')).status).toBe(400);
     expect((await upgrade('monthly')).status).toBe(502);
-  });
-});
-
-const dodoTestKey = process.env.DODO_TEST_API_KEY;
-const dodoTestMonthly = process.env.DODO_TEST_MONTHLY_PRODUCT_ID;
-
-describe.skipIf(!changesServerVariables || !dodoTestKey || !dodoTestMonthly)('with Dodo Payments in test mode', () => {
-  it('offers a Monthly checkout once the trial is used up', async () => {
-    await setServerVariable('DODO_API_KEY', dodoTestKey as string);
-    await setServerVariable('DODO_MONTHLY_PRODUCT_ID', dodoTestMonthly as string);
-    await setServerVariable('DODO_MODE', 'test');
-
-    const { plan } = await useUpTrialQuotes();
-
-    expect(plan).toMatchObject({ billingEnabled: true, isPaid: false });
-
-    const checkout = await upgrade('monthly');
-
-    expect(checkout.status).toBe(200);
-    expect(JSON.parse(checkout.body)).toMatchObject({
-      kind: 'checkout',
-      url: expect.stringMatching(/^https:\/\/[^/]*dodopayments\.com\//),
-    });
   });
 });

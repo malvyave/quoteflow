@@ -51,8 +51,14 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
+      # The Dodo test-mode test runs only when these secrets are set; it skips otherwise.
       - name: Unit tests
         run: yarn test:unit
+        env:
+          DODO_TEST_API_KEY: ${{ secrets.DODO_TEST_API_KEY }}
+          DODO_TEST_MONTHLY_PRODUCT_ID: ${{ secrets.DODO_TEST_MONTHLY_PRODUCT_ID }}
+          DODO_TEST_ANNUAL_PRODUCT_ID: ${{ secrets.DODO_TEST_ANNUAL_PRODUCT_ID }}
+          DODO_TEST_LIFETIME_PRODUCT_ID: ${{ secrets.DODO_TEST_LIFETIME_PRODUCT_ID }}
 
       # Browser tests run before the integration tests, whose teardown uninstalls the app.
       - name: Install the app on the test instance
