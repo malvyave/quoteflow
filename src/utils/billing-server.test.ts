@@ -14,7 +14,20 @@ vi.mock('twenty-sdk/logic-function', () => ({
   },
 }));
 
-const { getEntitlement, isLifetimeAvailable } = await import('src/utils/billing-server');
+// Quotes the app can see that have a number, as the trial count reads them.
+let numberedQuotes = 0;
+
+vi.mock('twenty-client-sdk/core', () => ({
+  CoreApiClient: class {
+    query = async () => ({
+      quotes: { edges: Array.from({ length: numberedQuotes }, (_, index) => ({ node: { id: `q${index}` } })) },
+    });
+  },
+}));
+
+const { countSentQuotes, getEntitlement, isLifetimeAvailable, recordQuoteNumber } = await import(
+  'src/utils/billing-server'
+);
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
@@ -140,5 +153,34 @@ describe('isLifetimeAvailable', () => {
 
     await expect(isLifetimeAvailable()).resolves.toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('countSentQuotes', () => {
+  beforeEach(() => {
+    numberedQuotes = 0;
+  });
+
+  it('counts the sent quotes in the workspace', async () => {
+    numberedQuotes = 4;
+
+    expect(await countSentQuotes()).toBe(4);
+  });
+
+  it('still counts quotes that were sent and then deleted', async () => {
+    for (const number of [1, 2, 3, 4, 5, 6]) {
+      await recordQuoteNumber(number);
+    }
+
+    numberedQuotes = 2;
+
+    expect(await countSentQuotes()).toBe(6);
+  });
+
+  it('never lowers the recorded number', async () => {
+    await recordQuoteNumber(7);
+    await recordQuoteNumber(3);
+
+    expect(await countSentQuotes()).toBe(7);
   });
 });

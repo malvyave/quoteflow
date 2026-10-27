@@ -24,6 +24,7 @@ const CUSTOMER_KEY = 'billing:customer';
 const ENTITLEMENT_CACHE_KEY = 'billing:entitlement';
 const TRIAL_STARTED_KEY = 'billing:trial-started-at';
 const LIFETIME_SOLD_KEY = 'billing:lifetime-sold';
+const HIGHEST_NUMBER_KEY = 'billing:highest-quote-number';
 const PAID_CACHE_MS = 60 * 60 * 1000;
 // Short, so a workspace that just paid is unblocked within a minute.
 const UNPAID_CACHE_MS = 60 * 1000;
@@ -209,8 +210,24 @@ const getTrialStartedAt = async () => {
   return now;
 };
 
+// Quote numbers only go up, so the highest one handed out is how many quotes were ever sent,
+// even after some are deleted. Called each time a quote gets its number.
+// The quote is already sent by then, so a failure here is logged rather than reported.
+export const recordQuoteNumber = async (number: number) => {
+  try {
+    const highest = (await kv.get<number>(HIGHEST_NUMBER_KEY)) ?? 0;
+
+    if (number > highest) {
+      await kv.set(HIGHEST_NUMBER_KEY, number);
+    }
+  } catch (error) {
+    console.warn('Could not record the quote number for the trial count.', error);
+  }
+};
+
 // Quotes ever sent in the workspace: every sent quote gets a number, and keeps it when withdrawn.
-// Runs as the app so every member's quotes count toward the trial.
+// The stored highest number covers quotes deleted since; the count covers quotes sent before it
+// was stored. Runs as the app so every member's quotes count toward the trial.
 export const countSentQuotes = async () => {
   const { quotes } = await new CoreApiClient({ runAs: 'application' }).query({
     quotes: {
@@ -219,7 +236,7 @@ export const countSentQuotes = async () => {
     },
   });
 
-  return quotes?.edges.length ?? 0;
+  return Math.max(quotes?.edges.length ?? 0, (await kv.get<number>(HIGHEST_NUMBER_KEY)) ?? 0);
 };
 
 export const getPlanStatus = async (): Promise<PlanStatus> => {

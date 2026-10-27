@@ -127,7 +127,14 @@ export const createDodoClient = ({
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
-    const payload = (text ? JSON.parse(text) : {}) as T & { message?: string; error?: string };
+    let payload: T & { message?: string; error?: string };
+
+    // An outage or a proxy can answer with an HTML page instead of JSON.
+    try {
+      payload = text ? JSON.parse(text) : {};
+    } catch {
+      throw new DodoError(`Dodo Payments returned an unreadable response (${response.status}).`, response.status);
+    }
 
     if (!response.ok) {
       throw new DodoError(

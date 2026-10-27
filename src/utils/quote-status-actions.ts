@@ -4,7 +4,7 @@ import { Response, type RoutePayload } from 'twenty-sdk/logic-function';
 import { QuoteStatus } from 'src/objects/quote.object';
 import { generatePublicToken } from 'src/utils/public-quote-token';
 import { canSendAnotherQuote, trialOverMessage } from 'src/utils/billing';
-import { getBillingConfig, getPlanStatus } from 'src/utils/billing-server';
+import { getBillingConfig, getPlanStatus, recordQuoteNumber } from 'src/utils/billing-server';
 import { logQuoteActivity } from 'src/utils/quote-activity';
 import { isQuoteExpired, toQuoteReference } from 'src/utils/quote-details';
 
@@ -155,6 +155,7 @@ const sendLoadedQuote = async (quote: QuoteForAction): Promise<number> => {
   for (let attempt = 1; ; attempt++) {
     try {
       await updateQuoteAsApp(quote.id, { ...sendData, number: candidate });
+      await recordQuoteNumber(candidate);
 
       return candidate;
     } catch (error) {

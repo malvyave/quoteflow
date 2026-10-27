@@ -113,6 +113,14 @@ describe('renderMessagePage', () => {
     expect(html).toContain('&lt;b&gt;Oops&lt;/b&gt;');
     expect(html).toContain('a &lt; b');
   });
+
+  // The quote link is a secret, so it must not reach search engines or the sites the page links to.
+  it('keeps the page out of search results and its address out of referrers', () => {
+    const html = renderMessagePage('Title', 'Message');
+
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+  });
 });
 
 describe('escapeHtml', () => {

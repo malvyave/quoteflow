@@ -282,4 +282,16 @@ describe('createDodoClient', () => {
     await expect(attempt).rejects.toBeInstanceOf(DodoError);
     await expect(attempt).rejects.toThrow('Invalid API key');
   });
+
+  it('reports an HTML outage page as a Dodo error', async () => {
+    const dodo = createDodoClient({
+      apiKey: 'key',
+      mode: 'test',
+      fetchImpl: recordingFetch([new Response('<html>502 Bad Gateway</html>', { status: 502 })]).fetchImpl,
+    });
+    const attempt = dodo.findPayingSubscriptionProduct({ customerId: 'cus_1', productIds: ['pdt_monthly'] });
+
+    await expect(attempt).rejects.toBeInstanceOf(DodoError);
+    await expect(attempt).rejects.toThrow('unreadable response (502)');
+  });
 });
