@@ -1,4 +1,4 @@
-# QuoteFlow for Twenty
+# QuoteFlowin for Twenty
 
 Itemized quotes on your Twenty deals. Add line items, send your client a link, and when they accept, the deal is marked won with the right amount.
 
@@ -15,7 +15,7 @@ One flat fee per workspace, not per user.
 
 When the trial ends, you can still open and edit your quotes, and links you already sent keep working for your clients; sending new quotes needs a plan. Choose one from the plan bar in the Quote tab. Payments are processed by Dodo Payments.
 
-QuoteFlow on a self-hosted Twenty server is free: plans apply to Twenty Cloud.
+QuoteFlowin on a self-hosted Twenty server is free: plans apply to Twenty Cloud.
 
 Feedback is very welcome; see [Support](#support).
 
@@ -23,7 +23,7 @@ Feedback is very welcome; see [Support](#support).
 
 1. Open a deal (opportunity) and go to the **Quote** tab.
 2. **Step 1 · Edit.** Add line items with quantity and price, and set a discount, tax and how long the quote is valid. Add an optional message to your client and your terms. A live preview beside the editor shows exactly what your client will see as you type.
-3. Click **Next: Review & share**. QuoteFlow saves the quote and shows a summary next to the full preview.
+3. Click **Next: Review & share**. QuoteFlowin saves the quote and shows a summary next to the full preview.
 4. **Step 2 · Review & share.** Click **Send quote**. You get a private link, and a ready-written email to your client with the quote number, total and link. Edit it if you like, then click **Open in email app** to send it from your own mailbox, or **Copy email** to paste it anywhere. The quote is locked while it is out.
 5. Your client opens the link (no account needed). The Quote tab shows when they first viewed it. They can download it as a PDF.
 6. Your client types their name and clicks **Accept quote**, or declines, optionally saying why.
@@ -49,7 +49,7 @@ Feedback is very welcome; see [Support](#support).
 
 ## Settings
 
-Find these under **Settings → Apps → QuoteFlow → Variables**.
+Find these under **Settings → Apps → QuoteFlowin → Variables**.
 
 | Setting | What it does |
 | --- | --- |
@@ -62,9 +62,9 @@ Find these under **Settings → Apps → QuoteFlow → Variables**.
 | Brand color | Accent color as a hex code, for example `#1961ED`. |
 | Default message, Default terms | What new quotes start with. Each quote can still be changed. |
 
-## What QuoteFlow can access
+## What QuoteFlowin can access
 
-QuoteFlow only works with the records it needs:
+QuoteFlowin only works with the records it needs:
 
 - **Quotes and quote line items** (its own objects): read and write.
 - **Opportunities**: read, and update the stage and amount when a quote is accepted.
@@ -76,14 +76,14 @@ It has no access to notes, emails or any other records, and never changes compan
 
 ## Your data
 
-Quotes are stored in your own Twenty workspace, next to your deals, and are covered by your workspace's backups and permissions. QuoteFlow does not send your data anywhere else.
+Quotes are stored in your own Twenty workspace, next to your deals, and are covered by your workspace's backups and permissions. QuoteFlowin does not send your data anywhere else.
 
 Client links contain a long random secret, are hidden from search engines, and stop working when a quote is withdrawn. Anyone who has a link can view and accept that quote, so share it only with your client.
 
 ## Current limitations
 
 - Discount and tax apply to the whole quote, not to individual lines.
-- QuoteFlow writes the email but does not send it: it opens in your own email app, so replies come straight to you.
+- QuoteFlowin writes the email but does not send it: it opens in your own email app, so replies come straight to you.
 - No e-signature or online payment yet.
 - The Quote tab shows the most recent quote on a deal. All of a deal's quotes are listed in its **Quotes** field.
 - Self-hosted Twenty must be reachable from the internet for clients to open quote links.

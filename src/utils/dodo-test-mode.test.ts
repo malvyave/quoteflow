@@ -24,7 +24,7 @@ describe.skipIf(!isConfigured)('Dodo Payments in test mode', () => {
 
   it('creates a customer, checkouts for all three plans and a portal link', async () => {
     const customerId = await dodo.createCustomer({
-      name: 'QuoteFlow CI',
+      name: 'QuoteFlowin CI',
       email: `ci+${workspaceId}@example.com`,
       workspaceId,
     });

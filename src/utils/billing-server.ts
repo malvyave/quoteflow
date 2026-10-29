@@ -134,7 +134,7 @@ export const getEntitlement = async ({ refresh = false } = {}): Promise<CachedEn
 
     return entitlement;
   } catch (error) {
-    console.warn('Could not check the QuoteFlow plan; allowing this request.', error);
+    console.warn('Could not check the QuoteFlowin plan; allowing this request.', error);
 
     return { isPaid: true, plan: null, customerId: null, checkedAt: Date.now() };
   }
@@ -195,7 +195,7 @@ export const isLifetimeAvailable = async () => {
   }
 };
 
-// The trial clock starts the first time the workspace uses QuoteFlow with billing on.
+// The trial clock starts the first time the workspace uses QuoteFlowin with billing on.
 const getTrialStartedAt = async () => {
   const stored = await kv.get<string>(TRIAL_STARTED_KEY);
 

@@ -68,7 +68,7 @@ export const createDeal = async (
     `mutation($d: OpportunityCreateInput!) { createOpportunity(data: $d) { id } }`,
     {
       d: {
-        name: exactName ? name : `[QuoteFlow test] ${name}`,
+        name: exactName ? name : `[QuoteFlowin test] ${name}`,
         stage,
         amount: { amountMicros: majorToMicros(amount), currencyCode: 'USD' },
       },
@@ -240,7 +240,7 @@ export const acceptPublicQuote = (token: string, fields: Record<string, string> 
 export const declinePublicQuote = (token: string, fields: Record<string, string> = {}) =>
   postPublicForm(`${publicQuoteUrl(token)}/decline`, fields);
 
-// Timeline events QuoteFlow added to a deal, by the label of their type.
+// Timeline events QuoteFlowin added to a deal, by the label of their type.
 export const getDealTimelineLabels = async (opportunityId: string) => {
   const data = await gqlData<{
     timelineActivities: { edges: { node: { timelineActivityTypeSnapshot: { label?: string } | null } }[] };
@@ -275,7 +275,7 @@ export const setServerVariable = async (key: string, value: string | null) => {
   const registrationId = lookup.data?.findApplicationRegistrationByUniversalIdentifier?.id;
 
   if (!registrationId) {
-    throw new Error('QuoteFlow registration not found');
+    throw new Error('QuoteFlowin registration not found');
   }
 
   const variables = await metadata<{

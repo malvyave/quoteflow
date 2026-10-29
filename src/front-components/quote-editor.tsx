@@ -1071,7 +1071,7 @@ const QuoteEditor = () => {
     </div>
   ) : null;
 
-  // QuoteFlow does not send email: the member sends this from their own email app, so replies
+  // QuoteFlowin does not send email: the member sends this from their own email app, so replies
   // come straight back to them.
   const emailPanel =
     isEditable || draft.status === QuoteStatus.SENT ? (

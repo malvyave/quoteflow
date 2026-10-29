@@ -4,6 +4,7 @@ All notable changes to this application are documented in this file.
 
 ## Unreleased
 
+- Renamed the app to QuoteFlowin, to match quoteflowin.com: the name in Settings → Apps, "Sent with QuoteFlowin" on the client page and "Prepared with QuoteFlowin" on PDFs. The npm package (`twenty-quoteflow`) and the app identifier are unchanged, so existing installs keep working.
 - New pricing: a 14-day free trial with up to 10 quotes sent, then Monthly ($12), Annual ($108 a year) or Lifetime ($139 once, limited to the first 75 workspaces). Choose a plan from the Quote tab. Replaces the free plan of 5 active quotes and the $19 plan.
 
 ## 0.2.0 — 2026-10-26

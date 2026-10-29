@@ -79,7 +79,7 @@ describe('renderQuotePage', () => {
     expect(html).toContain('onclick="window.print()"');
     expect(html).toContain('Download PDF');
     expect(html).toContain('<title>Website Redesign quote (Q-FB2CEDE7)</title>');
-    expect(html).toContain('Quote Q-FB2CEDE7 · Prepared with QuoteFlow');
+    expect(html).toContain('Quote Q-FB2CEDE7 · Prepared with QuoteFlowin');
   });
 
   it('opens the print dialog on load only when asked to', () => {

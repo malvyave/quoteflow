@@ -1,4 +1,4 @@
-// The email a member sends their client with the quote link. QuoteFlow does not send email
+// The email a member sends their client with the quote link. QuoteFlowin does not send email
 // itself: the member opens this in their own email app or copies it.
 
 export type QuoteEmail = { to: string; subject: string; body: string };

@@ -88,7 +88,7 @@ test('the printed quote hides buttons and keeps the content', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Download PDF' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Accept quote' })).toBeHidden();
   await expect(page.getByText('$6,903.00')).toBeVisible();
-  await expect(page.getByText(/Prepared with QuoteFlow/)).toBeVisible();
+  await expect(page.getByText(/Prepared with QuoteFlowin/)).toBeVisible();
 });
 
 test('the quote fits a phone screen without sideways scrolling', async ({ page }) => {

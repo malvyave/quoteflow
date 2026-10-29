@@ -236,7 +236,7 @@ const renderDocument = (
 <style>${STYLES}${accentColor ? `:root { --accent: ${accentColor}; }` : ''}</style>
 ${autoPrint ? AUTO_PRINT_SCRIPT : ''}
 </head>
-<body><main>${content}<p class="credit">Sent with QuoteFlow</p></main></body>
+<body><main>${content}<p class="credit">Sent with QuoteFlowin</p></main></body>
 </html>`;
 
 const DASH = '—';
@@ -443,7 +443,7 @@ export const renderQuotePage = ({
       ${renderOutcome({ quote, acceptActionUrl, declineActionUrl, isExpired, isPreview })}
       ${renderFooter(quote)}
     </div>
-    <p class="print-only">Quote ${escapeHtml(quote.reference)} · Prepared with QuoteFlow</p>`,
+    <p class="print-only">Quote ${escapeHtml(quote.reference)} · Prepared with QuoteFlowin</p>`,
     { autoPrint, accentColor: quote.seller.accentColor },
   );
 };

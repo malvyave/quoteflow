@@ -11,5 +11,5 @@ export const renderBillingDonePage = (status: string | undefined) =>
       )
     : renderMessagePage(
         'All set',
-        'You can close this tab and go back to Twenty. A new subscription can take up to a minute to show up in QuoteFlow.',
+        'You can close this tab and go back to Twenty. A new subscription can take up to a minute to show up in QuoteFlowin.',
       );

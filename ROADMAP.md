@@ -1,6 +1,6 @@
 # Roadmap
 
-Product name: QuoteFlow for Twenty (design doc v4).
+Product name: QuoteFlowin for Twenty (design doc v4; renamed from QuoteFlow).
 
 ## v1 (MVP)
 

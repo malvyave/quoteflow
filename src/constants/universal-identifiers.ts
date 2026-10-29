@@ -1,4 +1,4 @@
-export const APP_DISPLAY_NAME = 'QuoteFlow';
+export const APP_DISPLAY_NAME = 'QuoteFlowin';
 export const APP_DESCRIPTION = 'Itemized quotes on your deals: send a link, the client accepts, the deal is won.';
 export const APPLICATION_UNIVERSAL_IDENTIFIER = '6fc1a9b8-000e-423a-a356-62a50ae7f81c';
 export const DEFAULT_ROLE_UNIVERSAL_IDENTIFIER = 'c9f473df-fb97-411b-a949-07f3b67057b9';

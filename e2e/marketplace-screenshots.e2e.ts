@@ -130,7 +130,7 @@ test('capture the Quote tab and the client page', async ({ page, browser }) => {
   ).toBeVisible();
   await expect(page.getByText('$6,903.00').first()).toBeVisible();
 
-  // The demo workspace shows a mail sync banner that has nothing to do with QuoteFlow.
+  // The demo workspace shows a mail sync banner that has nothing to do with QuoteFlowin.
   const banner = page.getByText(/Sync lost with mailbox/).filter({ visible: true });
 
   await page.waitForTimeout(2000);
