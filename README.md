@@ -11,7 +11,7 @@ One flat fee per workspace, not per user.
 | **Free trial** | $0 | 14 days, up to 10 quotes sent. No credit card. |
 | **Monthly** | $12 per workspace per month | Unlimited quotes. Cancel anytime. |
 | **Annual** | $108 per workspace per year ($9 a month) | Unlimited quotes. Save 25%. |
-| **Lifetime** | $139 once | Unlimited quotes forever. Limited to the first 75 workspaces. |
+| **Lifetime** | $139 once | Unlimited quotes forever. Limited to the first 75 workspaces. Non-refundable. |
 
 When the trial ends, you can still open and edit your quotes, and links you already sent keep working for your clients; sending new quotes needs a plan. Choose one from the plan bar in the Quote tab. Payments are processed by Dodo Payments. See the [Terms](https://quoteflowin.com/terms.html) and [Refund Policy](https://quoteflowin.com/refund.html).
 

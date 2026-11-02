@@ -12,7 +12,7 @@ export type Plan = 'monthly' | 'annual' | 'lifetime';
 export const PLANS: Record<Plan, { label: string; price: string; detail: string }> = {
   monthly: { label: 'Monthly', price: '$12 / month', detail: 'Billed monthly. Cancel anytime.' },
   annual: { label: 'Annual', price: '$108 / year', detail: '$9 a month, billed yearly. Save 25%.' },
-  lifetime: { label: 'Lifetime', price: '$139 once', detail: 'Pay once. Unlimited quotes, forever.' },
+  lifetime: { label: 'Lifetime', price: '$139 once', detail: 'Pay once. Unlimited quotes, forever. Non-refundable.' },
 };
 
 export const isPlan = (value: unknown): value is Plan =>
