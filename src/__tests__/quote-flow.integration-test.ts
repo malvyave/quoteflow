@@ -142,7 +142,8 @@ describe('locked fields', () => {
     ]) {
       const result = await update(data);
 
-      expect(result.errors?.[0]?.message).toMatch(/not writable/);
+      // Newer Twenty servers word the refusal as a field permission error.
+      expect(result.errors?.[0]?.message).toMatch(/not writable|no permission to write field/);
     }
 
     expect((await update({ name: 'Renamed' })).errors).toBeUndefined();
