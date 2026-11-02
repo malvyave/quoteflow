@@ -2,6 +2,10 @@
 
 All notable changes to this application are documented in this file.
 
+## 1.0.1 — 2026-11-02
+
+- First release published from GitHub with npm provenance, so the app can be claimed in the Twenty marketplace. No changes to the app.
+
 ## 1.0.0 — 2026-11-02
 
 - Renamed the app to QuoteFlowin, to match quoteflowin.com: the name in Settings → Apps, "Sent with QuoteFlowin" on the client page and "Prepared with QuoteFlowin" on PDFs. The npm package is now `quoteflowin`; the app identifier is unchanged, so existing installs keep working.
