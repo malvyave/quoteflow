@@ -28,6 +28,7 @@ export default defineApplication({
   logo: 'public/logo.png',
   galleryImages: ['public/screenshot-editor.png', 'public/screenshot-client.png'],
   websiteUrl: 'https://quoteflowin.com',
+  termsUrl: 'https://quoteflowin.com/terms.html',
   emailSupport: 'info@quoteflowin.com',
   issueReportUrl: 'https://github.com/malvyave/quoteflow/issues',
   applicationVariables: {

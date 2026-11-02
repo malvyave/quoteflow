@@ -13,7 +13,7 @@ One flat fee per workspace, not per user.
 | **Annual** | $108 per workspace per year ($9 a month) | Unlimited quotes. Save 25%. |
 | **Lifetime** | $139 once | Unlimited quotes forever. Limited to the first 75 workspaces. |
 
-When the trial ends, you can still open and edit your quotes, and links you already sent keep working for your clients; sending new quotes needs a plan. Choose one from the plan bar in the Quote tab. Payments are processed by Dodo Payments.
+When the trial ends, you can still open and edit your quotes, and links you already sent keep working for your clients; sending new quotes needs a plan. Choose one from the plan bar in the Quote tab. Payments are processed by Dodo Payments. See the [Terms](https://quoteflowin.com/terms.html) and [Refund Policy](https://quoteflowin.com/refund.html).
 
 QuoteFlowin on a self-hosted Twenty server is free: plans apply to Twenty Cloud.
 
@@ -76,7 +76,7 @@ It has no access to notes, emails or any other records, and never changes compan
 
 ## Your data
 
-Quotes are stored in your own Twenty workspace, next to your deals, and are covered by your workspace's backups and permissions. QuoteFlowin does not send your data anywhere else.
+Quotes are stored in your own Twenty workspace, next to your deals, and are covered by your workspace's backups and permissions. QuoteFlowin does not send them anywhere else. For billing on Twenty Cloud, only your workspace ID and, when you open checkout, your name and email go to Dodo Payments. See the [Privacy Policy](https://quoteflowin.com/privacy.html).
 
 Client links contain a long random secret, are hidden from search engines, and stop working when a quote is withdrawn. Anyone who has a link can view and accept that quote, so share it only with your client.
 
