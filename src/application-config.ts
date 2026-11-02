@@ -27,7 +27,8 @@ export default defineApplication({
   category: 'Sales',
   logo: 'public/logo.png',
   galleryImages: ['public/screenshot-editor.png', 'public/screenshot-client.png'],
-  websiteUrl: 'https://github.com/malvyave/quoteflow',
+  websiteUrl: 'https://quoteflowin.com',
+  emailSupport: 'info@quoteflowin.com',
   issueReportUrl: 'https://github.com/malvyave/quoteflow/issues',
   applicationVariables: {
     WON_STAGE: {

@@ -1,10 +1,10 @@
 {
-  "name": "twenty-quoteflow",
-  "version": "0.2.0",
+  "name": "quoteflowin",
+  "version": "1.0.0",
   "description": "QuoteFlowin for Twenty: itemized quotes on your deals. Send a link, the client accepts, the deal is won.",
   "license": "MIT",
   "author": "malvyave",
-  "homepage": "https://github.com/malvyave/quoteflow#readme",
+  "homepage": "https://quoteflowin.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/malvyave/quoteflow.git"
