@@ -2,6 +2,11 @@
 
 All notable changes to this application are documented in this file.
 
+## 1.0.2 — 2026-11-02
+
+- New logo: the green Q from quoteflowin.com.
+- Shorter README for the marketplace About page, with getting-started steps, permissions, data handling and a support email.
+
 ## 1.0.1 — 2026-11-02
 
 - First release published from GitHub with npm provenance, so the app can be claimed in the Twenty marketplace. No changes to the app.
