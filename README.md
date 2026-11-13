@@ -1,6 +1,8 @@
 # QuoteFlowin for Twenty
 
-Itemized quotes on your Twenty deals. Add line items, send your client a link, and when they accept, the deal is marked won with the right amount.
+QuoteFlowin is the quotation app for Twenty CRM. Build itemized quotes on your Twenty deals, send your client a link, and when they accept, the deal is marked won with the right amount.
+
+Website: [quoteflowin.com](https://quoteflowin.com) · Guides: [create quotes in Twenty](https://quoteflowin.com/twenty-crm-quotes.html), [send and get accepted](https://quoteflowin.com/send-quote-twenty-crm.html), [quoting options compared](https://quoteflowin.com/twenty-crm-quoting-options.html)
 
 QuoteFlowin is an independent app by Anudeep Kaur. It is not made by or affiliated with Twenty.
 
